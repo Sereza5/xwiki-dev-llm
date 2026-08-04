@@ -1,14 +1,15 @@
 ---
 title: SonarQube test-code rules
 stability: durable
-summary: Correct fixes and XWiki-specific drop conditions for S5786, S5785, S3415, S6068 and
-  S8924 — including why S5785 must not be applied inside equals()/hashCode() contract tests, why
-  S3415's operand swap is usually unsafe, and how far an S6068 eq() unwrap may reach.
+summary: Correct fixes and XWiki-specific drop conditions for S5786, S5785, S3415, S6068, S8924 and
+  S9016 — including why S5785 must not be applied inside equals()/hashCode() contract tests, why
+  S3415's operand swap is usually unsafe, how far an S6068 eq() unwrap may reach, and how to name and
+  type the local an S9016 extraction introduces.
 ---
 
 # SonarQube test-code rules
 
-S3415 · S5785 · S5786 · S6068 · S8924
+S3415 · S5785 · S5786 · S6068 · S8924 · S9016
 
 These touch only test code, so production behaviour is untouched and review risk is low. But the
 module's tests actually run during verification, so a wrong edit fails the build rather than shipping
@@ -175,6 +176,46 @@ skips string and char literals. Drop `import static org.mockito.ArgumentMatchers
 Test sources only, so there is no coverage or API risk, and the module's own test suite is the
 complete verification. Lines only get shorter; where the shortened statement now fits, re-join its
 continuation line rather than leaving a one-token orphan.
+
+## S9016 — extract a nested mock creation to a local variable
+
+Message: *"Extract this mock creation to a local variable."* It fires on a `mock(...)` used directly as
+an argument of another call — in XWiki almost always
+`when(x.getY()).thenReturn(mock(Y.class))`. The fix declares the mock just above the statement and
+passes the variable. Test code only, and creating the mock one statement earlier has no observable
+effect, so there is **no coverage, API or behaviour risk**.
+
+**Drive it off the issue's `textRange`**, exactly as for S6068: `line[startOffset:endOffset]` is the
+`mock(...)` expression itself, which survives line drift far better than a pattern over the flagged
+line. Insert the declaration at the **statement start** (scan up until the previous non-blank line ends
+in `;`/`{`/`}`), using that line's indentation, so the `when(…)`-split-over-two-lines shape works
+unchanged.
+
+**Naming.** `<lowerCamelType>Mock` (`resourceMock`, `xWikiContextMock`) is consistent and collision-free
+in practice. Reserve names **per enclosing method**, not per file: a file-wide `taken` set produces
+`translationMock2` in a second test method that has no `translationMock`, which reads like a mistake.
+Only suffix `2`/`3` when the same type is mocked twice in the *same* method. Where a method mocks two
+different values of one type, a meaning-carrying name (`summaryMessageMock`, `detailedMessageMock`)
+beats `blockMock`/`blockMock2`.
+
+**A generic mocked type must not become a raw declaration.** `MultivaluedMap x =
+mock(MultivaluedMap.class)` compiles but immediately earns `S3740` — the fix would trade one issue for
+another. Write the type arguments and let Mockito's no-arg `mock()` infer them:
+`MultivaluedMap<String, String> queryParametersMock = mock();`. Pick the arguments the stubbed method
+actually declares; for a mock only ever handed back through a `<T> T` lookup
+(`componentManager.getInstance(Role.class, hint)`) any accurate parameterization works, since the
+declared type has no effect there.
+
+**The type-inferred form is the only drop, and only sometimes.** When the site is `thenReturn(mock())`
+there is no class literal to name, so a scripted batch must skip it — but it is usually recoverable by
+hand: read the stubbed getter's return type and write `Type nameMock = mock();`. Convert it when that
+type is **already imported** in the test (frequently `DocumentReference`, `Block`, `Job`); drop it when
+naming the type means adding an import from a foreign library (a Hibernate `Configuration`, say) — that
+is more than a mechanical cleanup should carry.
+
+**One shape that would be wrong**: a `mock(...)` inside a lambda body that is invoked more than once
+(`thenAnswer(i -> mock(X.class))`) must keep creating a fresh mock per call — check that the statement
+you are hoisting out of contains no `->` above the flagged expression.
 
 ## Related
 

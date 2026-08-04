@@ -3,13 +3,13 @@ title: SonarQube modernization rules
 stability: durable
 summary: Correct fixes and XWiki-specific drop conditions for the language-modernization rules —
   S6201 instanceof patterns, S6204/S6211 .toList(), S1640 EnumMap, S1604 lambda, S1643 StringBuilder,
-  S6126 text blocks, S6485 collection factory methods. Holds the .toList() escape analysis and the
-  EnumMap null-key break.
+  S4719 StandardCharsets, S6126 text blocks, S6485 collection factory methods. Holds the .toList()
+  escape analysis and the EnumMap null-key break.
 ---
 
 # SonarQube modernization rules
 
-S1604 · S1640 · S1643 · S6126 · S6201 · S6204 · S6211 · S6485
+S1604 · S1640 · S1643 · S4719 · S6126 · S6201 · S6204 · S6211 · S6485
 
 These rewrite code into a newer language or API form. They are compiler-checked in shape but **not in
 behaviour** — each has a way to break at runtime that the compiler cannot see, so each has a real drop
@@ -310,6 +310,30 @@ exact content is not asserted anywhere; there a subtle whitespace slip ships sil
 fail one of the three conditions above; before triaging such a pool site by site, check whether its
 fixtures share a shape (wiki tables with trailing spaces, CRLF input, indent ladders).
 - The string's exact content is not test-asserted **and** you cannot prove byte-identity by inspection.
+
+## S4719 — use a `StandardCharsets` constant instead of a charset name
+
+Message: *"Replace charset name argument with StandardCharsets.UTF_8"*, or *"Replace `IOUtils.toString()`
+call with `new String(..., StandardCharsets.UTF_8)`"*. Behaviour-identical, and it removes a
+name-lookup that can throw. Two shapes, and which one you have decides the size of the diff:
+
+- **A `private static final String X = "UTF-8"` used only where a `Charset` is accepted** — retype the
+  *constant* (`private static final Charset X = StandardCharsets.UTF_8;`) and leave every call site
+  untouched. One-line diff, clears every issue in the file at once. Only valid when the constant is
+  `private` (a `public`/`protected` constant's type or value changing is a Revapi break — see
+  [[backward-compatibility]]) and when **no** use of it still needs a `String`: a
+  `setEncoding(String)`-style call elsewhere in the class vetoes the retype, so fix that file at the
+  call site instead.
+- **A literal or a foreign deprecated API at the call site** — replace in place. `IOUtils.toString(byte[],
+  String)` becomes `new String(bytes, StandardCharsets.UTF_8)`, which typically **orphans** the charset
+  constant and the `IOUtils` import; delete both in the same edit or you have traded S4719 for S1068 and
+  S1128.
+
+Both shapes swap an overload that declares `UnsupportedEncodingException` for one that does not. That is
+fine when the enclosing method already declares `IOException` (the usual XWiki case) but check for a
+`catch (UnsupportedEncodingException …)` on the path — it would become unreachable and fail to compile.
+The `Charset` overloads of `String`, `InputStreamReader`, `ByteArrayOutputStream.toString` and
+`FileUtils`/`IOUtils` all exist at XWiki's Java level.
 
 ## Related
 

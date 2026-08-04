@@ -177,6 +177,23 @@ null), not a defect to chase.
 issue, so per file the change in open-brace count must equal the change in close-brace count must
 equal that file's issue count. Any mismatch means a stray or missing brace — inspect before building.
 
+## S2589 — a condition that always evaluates to `true` (or `false`)
+
+Not a blanket cleanup: Sonar is reporting a *dataflow* conclusion, so read what the condition is doing
+before deleting it. Two shapes are safe and mechanical, the third is a drop:
+
+- **The condition is the negation of the branch it sits in** — `} else if (this.x == null) {` closing an
+  `if (this.x != null)` becomes `} else {`.
+- **A guard repeated inside its own guarded block** — `if (!escaped) { if (c == '~' && !escaped) {…} }`
+  loses the redundant operand.
+- **DROP a defensive null check whose deadness depends on the surrounding flow**, especially in
+  concurrent code: `queueItem != null` after a `queue.poll()` whose result was already dereferenced
+  earlier is provably dead, yet it is clearly deliberate and removing it buys nothing but a lost
+  intention. Same reasoning as the "a comment explains why" universal drop condition in [[index]].
+
+Prefer sites in one method's local flow. A conclusion Sonar drew across several methods or through a
+field is where its analysis and a reader's understanding diverge most.
+
 ## Related
 
 - [[index]] — rule map, denylist, universal drop conditions.

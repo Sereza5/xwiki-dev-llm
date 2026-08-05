@@ -199,12 +199,20 @@ different values of one type, a meaning-carrying name (`summaryMessageMock`, `de
 beats `blockMock`/`blockMock2`.
 
 **A generic mocked type must not become a raw declaration.** `MultivaluedMap x =
-mock(MultivaluedMap.class)` compiles but immediately earns `S3740` — the fix would trade one issue for
-another. Write the type arguments and let Mockito's no-arg `mock()` infer them:
+mock(MultivaluedMap.class)` compiles, but a cleanup should not leave a raw type and an
+unchecked-conversion warning behind. Write the type arguments and let Mockito's no-arg `mock()` infer
+them:
 `MultivaluedMap<String, String> queryParametersMock = mock();`. Pick the arguments the stubbed method
 actually declares; for a mock only ever handed back through a `<T> T` lookup
 (`componentManager.getInstance(Role.class, hint)`) any accurate parameterization works, since the
 declared type has no effect there.
+
+**The converse is not required: keep the class literal for a non-generic type.** The rule's own
+compliant example is `Foo foo = mock(Foo.class);`, and the XWiki Java profile enables neither `S3740`
+(raw types) nor `S6212` (local-variable type inference) — so rewriting `mock(Foo.class)` to the
+reified `mock()` clears nothing and is a style choice only. `Type x = mock(Type.class)` is also the
+dominant form in the test sources (~2500 occurrences in `xwiki-platform-core` alone), so keeping it
+makes the extraction a pure move of the original expression.
 
 **The type-inferred form is the only drop, and only sometimes.** When the site is `thenReturn(mock())`
 there is no class literal to name, so a scripted batch must skip it — but it is usually recoverable by

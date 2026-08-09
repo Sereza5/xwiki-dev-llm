@@ -222,6 +222,19 @@ asserts.
 Hoisted locals must be effectively final (the compiler enforces it), and the shortened
 `assertThrows(...)` call usually fits back on one line — re-join it.
 
+**"Hoist the nested invocation" is not the same as "hoist the outermost one".** When the *thrower* is
+the outer call and its arguments are the fixtures — `new EntityReference(null, new EntityReference(a),
+new EntityReference(b))`, where the `null` name is what throws — the fix hoists the two **arguments**
+and leaves the outer constructor in the lambda. A batch keyed to "the first nested `new X(…)`" picks
+the whole body instead, which compiles, silently moves the exception outside `assertThrows`, and
+fails the test. Guard it: assert the hoisted span is not the entire lambda body.
+
+**A block-bodied lambda is a fix, not a drop.** `() -> { Foo f = new Foo(); f.doIt(); }` is the same
+defect wearing braces: hoist the declaration above the assertion and the block collapses to an
+expression lambda — or to a method reference when nothing is left but the call
+(`assertThrows(RuntimeException.class, message::getType)`). Read the block first: only the statements
+that cannot throw may leave it.
+
 **S5783 is the trap an S8714 conversion sets for itself.** A `try` body that *constructs* an argument
 inline — `this.printer.print(new URL("http://…"))` — has two checked-exception throwers
 (`MalformedURLException` from the constructor, `IOException` from the call) the moment you wrap it in

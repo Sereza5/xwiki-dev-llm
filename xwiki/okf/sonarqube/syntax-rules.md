@@ -2,13 +2,13 @@
 title: SonarQube syntax and annotation rules
 stability: durable
 summary: Correct fixes and XWiki-specific drop conditions for the pure syntax/annotation rules —
-  S1116, S1124, S1128, S1161, S1197, S1611, S2209, S3878, S6208, S7476. Includes S3878's
+  S117, S1116, S1124, S1128, S1161, S1197, S1611, S2209, S3878, S6208, S7476. Includes S3878's
   infinite-recursion trap and why S2209 is safe where the denylisted S3252 is not.
 ---
 
 # SonarQube syntax and annotation rules
 
-S1116 · S1124 · S1128 · S1161 · S1197 · S1611 · S2209 · S3878 · S6208 · S7476
+S117 · S1116 · S1124 · S1128 · S1161 · S1197 · S1611 · S2209 · S3878 · S6208 · S7476
 
 The safest family: zero dataflow, and (except S3878) no way for a correct edit to change behaviour.
 Read [[index]] for the universal drop conditions first.
@@ -97,6 +97,49 @@ In practice almost always `final static` → `static final` or `static public` �
 - Sites cluster many-per-file (a block of constants can yield a dozen in one file).
 - Verification tip: assert that the reordered modifier run actually *differs* from the original. A
   no-op means the flagged line has drifted and points at something else now.
+
+## S117 — rename a local variable or parameter to match `^[a-z][a-zA-Z0-9]*$`
+
+Message: "Rename this local variable to match the regular expression `^[a-z][a-zA-Z0-9]*$`." It fires
+on locals **and on method parameters** (the message says "local variable" either way), so read the
+flagged line before planning the batch — the two halves carry different risk. The XWiki pool is legacy
+`oldcore` naming: `engine_context`, `DefaultAction`, `String0`, `text_class`, and occasionally a
+non-ASCII letter (`prefβ`) in a test.
+
+Do **not** confuse it with **`S1117`** ("rename this local variable which hides the field declared at
+line N"), which the corpus treats as not worth fixing: there a missed occurrence silently re-binds to
+the field, whereas here a missed occurrence is a compile error.
+
+Split the pool by **what is declared** — it is the natural safe/unsure boundary, and the issue's
+`textRange` line tells you which without reading the method:
+
+- **A local variable** is a pure mechanical fix: the rename cannot leave the declaring method, so
+  `javac` plus the module's own tests are the complete verification.
+- **A method parameter** changes no signature (parameter names are not part of a Java signature, and
+  Revapi reports nothing), but on a long-standing public API it is visible in the Javadoc and in IDE
+  completion. Ship those as their own PR so they do not hold up the mechanical half. Update the
+  `@param` tag in the same edit.
+
+### The `this.<name>` trap
+
+In `oldcore` a flagged parameter very often **shadows a field of the same name**
+(`XWiki.engine_context`, `XWikiContext.URLFactory`, `XWikiAttachment.attachment_archive`). Leave the
+field alone — renaming a field is a different change (and `S116`'s problem) — which means the
+substitution must **never match a `this.<name>` access**: use
+`(?<![\w$])(?<!this\.)name(?![\w$])`. The result, `this.engine_context = engineContext;`, is correct.
+A plain word-boundary substitution renames the field reference too and the file stops compiling.
+
+The mirror-image guard is what makes the rename safe rather than merely compiling: **assert the NEW
+name occurs zero times in the rename scope** (signature + Javadoc + body for a parameter, the whole
+file for a local). Without it, a renamed identifier can capture a bare reference that used to resolve
+to a same-named field — which compiles and silently changes behaviour.
+
+- Renaming a local file-wide is fine when the identifier is only ever declared as a local: all
+  occurrences denote the same thing, so a consistent rename is behaviour-preserving.
+- Transliterate rather than re-letter a non-ASCII name (`prefβ` → `prefBeta`), so a test's existing
+  α/β/γ ordering scheme survives.
+- Watch the 120-column rule on the *uses*, not the declaration: the longer name repeated inside a
+  collection literal is what pushes a line over.
 
 ## S3878 — array created for a varargs parameter
 

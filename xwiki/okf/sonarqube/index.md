@@ -36,7 +36,7 @@ every day.
 
 | Rule keys | Family file |
 |---|---|
-| S1116 S1124 S1128 S1161 S1197 S1611 S1659 S2209 S3878 S6208 S7476 | [[syntax-rules]] |
+| S117 S1116 S1124 S1128 S1161 S1197 S1611 S1659 S2209 S3878 S6208 S7476 | [[syntax-rules]] |
 | S1066 S1125 S1126 S1155 S1264 S1488 S1596 S1602 S1612 S1858 S1905 S2130 S2864 S3012 S3024 S3706 S4201 S6353 S6397 S7158 | [[simplification-rules]] |
 | S1604 S1640 S1643 S6126 S6201 S6204 S6211 S6485 | [[modernization-rules]] |
 | S125 S1068 S1118 S1130 S1144 S1185 S1481 S1854 | [[dead-code-rules]] |
@@ -58,6 +58,9 @@ Each of these is either bad ROI or a false positive against a deliberate XWiki i
 - **`S6213`** "rename this method/variable to not match a restricted identifier" (`record`, `yield`,
   `var`) — a rename of a public method or field is an API change, and the XWiki pool sits on
   `record(…)` methods of the `*QuestionRecorder` classes. Not a cleanup.
+- **`S1117`** "rename this local variable which hides the field declared at line N" — a missed
+  occurrence silently re-binds to the field instead of failing to compile, and the payoff is one issue
+  per rename. (The naming-convention rule **`S117`** is a different, safe rule — see [[syntax-rules]].)
 - **`S4144`** "implementation is identical to method X" — deduplicating two methods that legitimately
   mean different things is a design decision.
 - **`S115`** constant naming, **`S1214`** constants-in-interface — cross-module renames, breaking.

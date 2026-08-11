@@ -117,6 +117,12 @@ build gate to make a fix pass.
 - **The fix removes covered instructions from a module pinned near its coverage floor** → JaCoCo
   fails. See [[verification]] — the resolution is to drop that module from the change, never to lower
   the pinned ratio.
+- **The commit that introduced the flagged shape did so DELIBERATELY.** Not every rationale is a
+  comment — often it is a commit message. Run `git log -L<line>,<line>:<file>` (or
+  `git log -1 -- <file>` and read the diff) before editing: if a recent, JIRA-numbered commit changed
+  the code *into* the shape Sonar is flagging, the "fix" is a revert of a tracked decision and the site
+  is a drop. This is most acute on logging calls, where explicit `toString()` calls have been removed
+  and restored more than once — see [[logging]].
 - **A comment or Javadoc on the flagged code explains why it is the way it is.** Treat it as
   authoritative and drop: Sonar cannot see reflective dispatch, serialization contracts, or a
   deliberate disambiguation, but the developer who wrote that comment could.

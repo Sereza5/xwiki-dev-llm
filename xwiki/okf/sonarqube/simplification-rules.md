@@ -274,14 +274,33 @@ declare the local with the else-value and assign under the `if`; for a chained t
 - **Check `ExecutableStatementCount` (30)**: the extraction adds a statement, so a long method already
   at the cap fails the build. See [[index]].
 
-## S3457 — read the message, the rule has two shapes
+## S3457 — read the message, the rule has two shapes and BOTH have a trap
 
-- **"No need to call `toString()` …"** — clean: delete the call and let the formatter (or SLF4J) do the
-  conversion. Same shape as the only fixable form of `S2629`.
-- **"`%n` should be used in place of `\n`"** — a **behaviour change**, because `%n` emits the platform
-  separator. Always drop it when the produced string is asserted, compared, or is a wire/diff format
-  (`UnifiedDiffBlock`'s unified-diff header is rebuilt literally by its test), and drop it when a
-  sibling `format` call in the same message keeps `\n` — "fixing" one half yields inconsistent output.
+**"No need to call `toString()` …"** (also the only "fixable-looking" form of `S2629`) — **do not just
+delete the call.** On a *logging* call the explicit `toString()` is frequently load-bearing, and
+[[logging]] is the authority: SLF4J is not the only consumer. `Message.formattedMessage` is
+`transient`, so a captured `LogEvent` keeps the **raw `Object[]`**, and the job-status log
+XStream-serializes each argument (`SafeMessageConverter.marshal()`); `XStreamUtils.isSerializable()`
+**defaults to `true`**, so a domain object is written as a full object graph instead of a one-line
+string, and on read-back `SafeArrayConverter.readBareItem()` turns any failure into `null`. Removing the
+`toString()` therefore changes what ends up in the job log.
+
+The fix that clears the rule *and* keeps the eager snapshot is **`String.valueOf(x)`** — it is not a
+`toString()` call, so `S3457` stops firing, and it is null-safe. That is the form `DefaultJobProgress`
+already uses. Only delete the call outright when [[logging]]'s "safe to pass as an object" list covers
+the argument (enum, `String`, `Number`, `Boolean`, `File`, a `@Component`, a `Collection`).
+
+- **Check the flagged line's own `git log` first.** `xwiki-commons` has oscillated on exactly these
+  lines (`#1871` stripped explicit `toString()` calls, `#1872`/`#1884` put them back under a JIRA
+  issue). If the commit that introduced the shape did so deliberately, "fixing" it is reverting a
+  tracked decision — see [[index]]'s universal drop conditions.
+- Inside a `catch` block no `@SuppressWarnings("java:S2629")` is needed alongside it: `S2629` skips
+  `catch` blocks.
+
+**"`%n` should be used in place of `\n`"** — a **behaviour change**, because `%n` emits the platform
+separator. Always drop it when the produced string is asserted, compared, or is a wire/diff format
+(`UnifiedDiffBlock`'s unified-diff header is rebuilt literally by its test), and drop it when a
+sibling `format` call in the same message keeps `\n` — "fixing" one half yields inconsistent output.
 
 ## S3824 — `Map.get()`/`containsKey()` + condition → `computeIfAbsent`
 

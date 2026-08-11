@@ -8,8 +8,8 @@ summary: Correct fixes and XWiki-specific drop conditions for the behaviour-pres
 
 # SonarQube simplification rules
 
-S1066 · S1125 · S1126 · S1155 · S1264 · S1488 · S1602 · S1612 · S1858 · S2130 · S2864 ·
-S3012 · S3024 · S3706 · S6397 · S7158
+S1066 · S1125 · S1126 · S1155 · S1264 · S1488 · S1602 · S1612 · S1858 · S1871 · S2130 · S2589 ·
+S2864 · S3012 · S3024 · S3358 · S3457 · S3706 · S6397 · S7158
 
 Behaviour-preserving rewrites that need no dataflow analysis — the best mechanical-fix fodder after
 the syntax family. Read [[index]] for the universal drop conditions first.
@@ -213,3 +213,88 @@ site that passed the raw constant keeps compiling; it just stops being a raw typ
 - [[index]] — rule map, denylist, universal drop conditions.
 - [[syntax-rules]] — S1611, which pairs with S1602.
 - [[verification]] — the build gates that confirm a fix.
+
+## S1871 — two branches with an identical body
+
+Message: "This branch's code block is the same as the block for the branch on line N." Merge the two
+conditions with `||`; `||` short-circuits in the same order the `if`/`else if` chain evaluated in, so
+the number and order of predicate calls is unchanged — including the case where the *second* condition
+would throw had the first not been taken (`result.isEmpty() || … || result.get().x()` is still safe).
+
+- **The discriminator is `BooleanExpressionComplexity` (max 3), and it is decidable before you edit.**
+  Count the `&&`/`||` in the merged condition. Two-branch merges pass (`!a || b`,
+  `x.equals(y) || x.length() > y.length()`, `(A && B) || (C && D)` is exactly 3). A four-branch
+  `return false` chain came out at 10 and the build rejected it — leave those alone.
+- Merging branches whose bodies are `return X;` is the same edit; do not "improve" it into a bare
+  `return <condition>;` if that removes covered instructions from a module near its coverage floor.
+- When the branches carry one comment each, merge the comments above the single `if` rather than
+  dropping either.
+
+## S2589 — a sub-expression that is always true (or false)
+
+Message: "Remove this expression which always evaluates to …". This one is **mostly drops**, and the
+split is about *why* the expression is redundant.
+
+**Fix** when the redundancy is created by the surrounding code and is therefore pure noise:
+
+- A conjunct made redundant by the preceding branch of the same chain — after `if (count && composite)`,
+  the next `else if (count && !composite)` is just `else if (count)`, and the one after that
+  (`!count && composite`) is `else if (composite)`.
+- A null check after an `instanceof` **pattern binding** (`… instanceof ExtensionId id && id != null`).
+- A null check on a variable inside a block already guarded by `instanceof` on it.
+- A conjunct the enclosing disjunction already implies: `!ws || (ws && !inWs)` → `!ws || !inWs`.
+
+**Drop** when the expression is *deliberate*:
+
+- A dead **defensive** null check — it costs nothing, reads as intentional, and in concurrent code
+  (queue polls, cache lookups) removing it is a behaviour argument.
+- A numbered/exhaustive case analysis whose comments document the cases (`// 1.` … `// 4.`): the
+  "redundant" conjunct is what makes the table readable.
+- One of several identical guards repeated for symmetry (a `if (!save) { doc = doc.clone(); }` pattern
+  repeated per field) — clearing only the first breaks the pattern.
+
+## S3358 — nested ternary
+
+Message: "Extract this nested ternary operation into an independent statement." Turn the OUTER condition
+into a guard clause and leave the inner ternary as the only one:
+
+    return type == T ? (ref instanceof R r ? r : new R(ref)) : null;
+    // becomes
+    if (type != T) {
+        return null;
+    }
+    return ref instanceof R r ? r : new R(ref);
+
+That form evaluates nothing the original did not, so it is behaviour-preserving. For an assignment,
+declare the local with the else-value and assign under the `if`; for a chained ternary, expand to
+`if`/`else if`/`else` assigning the local.
+
+- **Drop when the ternary is an argument of a `this(…)`/`super(…)` delegating constructor call** — no
+  statement may precede it, so clearing the issue needs a static helper method.
+- **Check `ExecutableStatementCount` (30)**: the extraction adds a statement, so a long method already
+  at the cap fails the build. See [[index]].
+
+## S3457 — read the message, the rule has two shapes
+
+- **"No need to call `toString()` …"** — clean: delete the call and let the formatter (or SLF4J) do the
+  conversion. Same shape as the only fixable form of `S2629`.
+- **"`%n` should be used in place of `\n`"** — a **behaviour change**, because `%n` emits the platform
+  separator. Always drop it when the produced string is asserted, compared, or is a wire/diff format
+  (`UnifiedDiffBlock`'s unified-diff header is rebuilt literally by its test), and drop it when a
+  sibling `format` call in the same message keeps `\n` — "fixing" one half yields inconsistent output.
+
+## S3824 — `Map.get()`/`containsKey()` + condition → `computeIfAbsent`
+
+Clean **only** when the guarded block is exactly one `put` of a freshly built value:
+
+    List<URL> l = map.get(k); if (l == null) { l = new ArrayList<>(); map.put(k, l); } l.add(v);
+    // becomes
+    map.computeIfAbsent(k, key -> new ArrayList<>()).add(v);
+
+- **Drop when the guarded block does anything else** — an `else if` branch, another key, logging, an
+  early return. `computeIfPresent` in the message is a hint that the shape is not a plain absent-put.
+- **Drop when the map is a `ConcurrentHashMap` and the mapping function calls out to another
+  component.** `computeIfAbsent` runs the function while holding the bin lock, so a call that can reach
+  back into the same map deadlocks; the pre-existing get/put version does not.
+- The `containsKey` form differs from `computeIfAbsent` only for a key mapped to `null`, which is fine
+  for the config/registry maps this fires on — but say so if the map can legitimately hold nulls.

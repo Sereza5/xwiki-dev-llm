@@ -37,7 +37,7 @@ every day.
 | Rule keys | Family file |
 |---|---|
 | S1116 S1124 S1128 S1161 S1197 S1611 S1659 S2209 S3878 S6208 S7476 | [[syntax-rules]] |
-| S1066 S1125 S1126 S1155 S1264 S1488 S1596 S1602 S1612 S1858 S1905 S2130 S2864 S3012 S3024 S3706 S4201 S6353 S6397 S7158 | [[simplification-rules]] |
+| S1066 S1125 S1126 S1155 S1264 S1488 S1596 S1602 S1612 S1858 S1871 S1905 S2130 S2589 S2864 S3012 S3024 S3358 S3457 S3706 S4201 S6353 S6397 S7158 | [[simplification-rules]] |
 | S1604 S1640 S1643 S6126 S6201 S6204 S6211 S6485 | [[modernization-rules]] |
 | S125 S1068 S1118 S1130 S1144 S1185 S1481 S1854 | [[dead-code-rules]] |
 | S1143 S1163 S1192 S2093 S2119 S2147 S3626 S4719 S5361 | [[constant-and-resource-rules]] |
@@ -81,9 +81,13 @@ Each of these is either bad ROI or a false positive against a deliberate XWiki i
   pool sits on `public static final String` regex constants. The value of a **compile-time constant**
   changing is a Revapi `java.field.constantValueChanged` break even when the two regexes match
   identically. Only fix it on a private or local pattern.
-- **`S3824`** `Map.get()`/`containsKey()` + condition → `computeIfAbsent` — check the guarded block
-  before believing the message. When it does anything beyond the single `put` (touching another key,
-  logging, an early return), `computeIfAbsent` is not an equivalent rewrite.
+- **`S4973`** "compare Strings/boxed types with `equals()`" — a **real-bug rule, not a cleanup**. Every
+  site needs a semantic decision about whether `==` was meant as identity: sentinel constants
+  (`Difference.NONE`), interned type strings, boxed getters. Several XWiki sites are deliberate identity
+  checks with a comment saying so. That is a JIRA issue per site, not a sweep.
+
+`S3824` is **not** denylisted but is the rule most often mis-fixed; its conditions are in
+[[simplification-rules]].
 
 ## Universal drop conditions
 
@@ -97,6 +101,15 @@ build gate to make a fix pass.
   no slack is an unavoidable drop. (Note that files rich in a given issue are often *excluded from
   Checkstyle* at the module-pom level — which is why the debt accumulated there — but Sonar scans
   them anyway, so the 120-char rule still applies to what you write.)
+- **The rewritten code trips a Checkstyle METRIC rule.** The 120-column rule is not the only one that
+  can reject a mechanically-correct fix: **`BooleanExpressionComplexity` caps a single expression at 3
+  operators** and **`ExecutableStatementCount` caps a method at 30 statements**. So a fix that *merges*
+  conditions (S1871) or *hoists* a sub-expression into a new statement (S3358, S9016) can fail in a
+  method that was already at the limit — after the tests have run, which costs a whole build round.
+  Check it before applying: count the `&&`/`||` in the condition you are about to write, and the
+  statements already in the method you are about to add one to. When it fires, **drop the site**;
+  splitting the method or re-nesting the condition is a refactor, not a Sonar cleanup. Treat the
+  rejection as informative — the codebase is stating that the "simplified" form is not more readable.
 - **The fix changes a public API's shape or visibility** → Revapi fails under `-Pquality`. Reducing an
   implicit-public constructor to `private`, narrowing a modifier, or removing a public member are all
   breaking. See [[backward-compatibility]]. Classes in an `internal` package are exempt (Revapi

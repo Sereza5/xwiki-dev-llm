@@ -48,7 +48,8 @@ Two forms, picked per site:
   detected by catching `Throwable`, a null check written as a `catch`). Expecting an exception as a
   normal case is an anti-pattern; the TODO records that the logic itself should change.
 
-This applies to `java:S108` and `java:S1186` fixes, which otherwise satisfy Sonar with any comment —
-see [[sonarqube/index]]. It does **not** apply to an empty block that is not exception handling (a
-filter branch, an empty `switch` default): those take a plain explanatory comment.
+The trigger is the swallowed **exception**, not the empty block: this is what a `java:S108` fix must
+write, since that rule is otherwise satisfied by any comment. An empty block that is not exception
+handling takes a plain explanatory comment instead — a filter branch, an empty `switch` default, and
+the deliberate no-op implementations that `java:S1186` flags.
 

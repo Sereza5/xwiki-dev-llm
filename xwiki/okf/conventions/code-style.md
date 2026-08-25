@@ -37,8 +37,6 @@ authoritative source of truth.
   This is not on the dev wiki's CodeStyle page (every example there merely happens to be multi-line)
   but it is enforced in review. **When you touch a file that still uses the one-line form, convert
   that file's comments as part of your change.**
-- A rationale comment on a swallowed exception is not enough on its own: see [[code-comments]] for
-  the `// TODO:` rule that applies to an empty `catch`.
 
 ## File encoding
 

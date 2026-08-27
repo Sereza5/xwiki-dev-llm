@@ -143,6 +143,9 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   - `xwiki-legacy` — move a deprecated public API out of a main module into its `-legacy` companion (migrate callers, remove, re-add via a plain class or an AspectJ aspect, Revapi ignore).
   - `xwiki-fix-flickering-docker-test` — fix a flickering Docker-based functional test.
   - `xwiki-deploy-extension` — deploy a XAR/JAR extension to a running XWiki instance.
+  - `xwiki-ui-before-after` — build a UI change's pre-fix and post-fix code against a local XWiki
+    instance and export a real side-by-side before/after screenshot comparison as one PNG.
+    Needs a prebuilt XWiki jetty+hsqldb distribution, Playwright/Chromium and ImageMagick.
   - `xwiki-rest-api` — read/write a running XWiki over REST: get page content & xobjects, update pages & object properties, create pages (with xobjects), Solr search.
   - `xwiki-xar-pages` — edit extension wiki pages (XAR XML): the `xar:format` / `xar:verify` conventions.
   - `xwiki-translations` — externalize and render i18n strings safely.

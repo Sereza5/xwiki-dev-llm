@@ -253,16 +253,33 @@ It tries each selector in order and clips to whichever one is present via its ow
 `{topPad, rightPad, bottomPad, leftPad}`). A sliver of an adjacent element in the output is crop
 overshoot, not a bug in the fix - tighten the relevant side's pad a few px at a time.
 
-**Default to some surrounding UI, not just the bare element.** A crop tight enough to show only
-the exact pixels that changed - `screenshotElement`'s default 4px pad - is the right choice
-*within* a technical or PR comparison, but as a rule of thumb also capture a wider variant that
-includes a bit of recognizable surrounding chrome: a toolbar, a panel header, page navigation,
-whatever makes it obvious *where in the product* this is rather than only *what* changed. A
-reader unfamiliar with the exact selector or feature cannot place an isolated element in context;
-seeing the CKEditor toolbar above a hint line, or a settings panel's header above a toggle,
-answers "where am I looking?" for free. This matters even more for anything meant for an audience
-beyond the PR reviewer - see `references/release-notes-comparison.md` for the extra step of
-stripping dev-only identifiers that a wider crop is more likely to sweep in.
+**Always capture the surrounding UI, not just the bare element.** A crop tight enough to show
+only the exact pixels that changed - `screenshotElement`'s default 4px pad - proves *what*
+changed but not *where in the product* it is, and a reader unfamiliar with the selector or
+feature cannot place an isolated element on their own. So take a second, wider shot of the same
+state per side, with enough recognizable chrome to answer "where am I looking?": a toolbar, a
+panel header, page navigation, the neighbouring buttons. Seeing the CKEditor toolbar above a hint
+line, or a settings panel's header above a toggle, answers that for free.
+
+**Both shots belong to the same scenario.** Pass the wider one as the optional `context` key
+alongside `image` in step 4's config, and the builder stacks it above the detail crop inside the
+same before/after panel:
+```json
+"before": {
+  "context": "before-bar.png",
+  "image":   "before-group-crop.png",
+  "caption": "The Save button's right corners are square, unlike every other button group."
+}
+```
+A scenario is a state or interaction worth comparing - never a zoom level. Splitting the context
+shot into its own scenario row is wrong twice over: it reads as two separate findings, and it
+leaves the wide row showing a change too small to see while the tight row shows a change nobody
+can locate. If one crop genuinely has to carry both jobs, widen the detail crop until the nearest
+recognizable landmark is inside it rather than dropping either duty.
+
+This matters even more for anything meant for an audience beyond the PR reviewer - see
+`references/release-notes-comparison.md` for the extra step of stripping dev-only identifiers
+that a wider crop is more likely to sweep in.
 
 **Logging in for authenticated fixtures:** `expand-and-shoot.js` and `setup-class-object.js`
 cover the PropertyClass case. For anything else that needs a logged-in session (creating a
@@ -312,7 +329,7 @@ python3 "$XWIKI_UI_SKILL"/build-comparison.py \
 ```
 See the script's docstring at the top of the file for the config shape: `ticket`, `title`,
 `repro`, and a `scenarios` array where each entry has a `title` and `before`/`after` objects
-(`image` path plus a one-line `caption`).
+(`image` path, an optional wider `context` path, plus a one-line `caption`).
 
 **If the user mentions a design, prototype or mockup** - a Figma or JIRA-attached image to
 compare the implementation against - do not wedge it into the 2-column before/after. Use
@@ -348,6 +365,8 @@ single-column breakpoint, so pass a wider viewport to `export-to-png.js` in step
 - Each before/after card keeps a short one-line caption under its screenshot, not just alt text.
   This is deliberate, for assistive tech and quick scanning. Do not drop it even when trying to
   keep things terse; terseness applies to the surrounding prose, not the captions.
+- One scenario per state or interaction, never one per zoom level. A detail crop and the wider
+  shot that places it are one comparison, so they share a panel via `context` - see step 1.
 
 ### 5. Export the comparison to a single PNG (this is the deliverable, not an Artifact)
 

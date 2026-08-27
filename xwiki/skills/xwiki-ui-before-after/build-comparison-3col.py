@@ -27,7 +27,9 @@ config.json shape:
 
 Same layout rules as build-comparison.py (see that file's docstring) apply here: heading is
 "TICKET: Title" only, the repro line is plain text right under the heading, no per-scenario
-paragraph, and every image keeps a one-line caption underneath it.
+paragraph, and every image keeps a one-line caption underneath it. Each of the three cells also
+takes the same optional "context" key - a wider shot rendered above the detail crop in that same
+cell, rather than a second scenario re-comparing the element at another zoom level.
 
 Crop screenshots (and the design image) with imagemagick first if they have dead whitespace, e.g.:
   convert design.png -crop 1750x260+950+270 +repage design-crop.png
@@ -48,6 +50,29 @@ def b64(path):
     return base64.b64encode(pathlib.Path(path).read_bytes()).decode()
 
 
+def shots(entry, label, caption):
+    """Render an entry's screenshot(s) for one panel.
+
+    An entry always has an "image" - the detail crop, tight on what changed. It may also have a
+    "context" - the same thing shot wider, with enough surrounding UI to place it in the product.
+    Both belong to the SAME scenario panel, context first then detail: a detail crop with no
+    context leaves the reader unable to tell where they are looking, and splitting the two into
+    separate scenarios pretends they are different comparisons when they are one.
+    """
+    parts = []
+    if entry.get("context"):
+        parts.append(
+            f'<div class="shot-wrap context">'
+            f'<img src="data:image/png;base64,{b64(entry["context"])}" '
+            f'alt="{label}, in context: {caption}"></div>'
+        )
+    parts.append(
+        f'<div class="shot-wrap">'
+        f'<img src="data:image/png;base64,{b64(entry["image"])}" alt="{label}: {caption}"></div>'
+    )
+    return "".join(parts)
+
+
 def main():
     if len(sys.argv) != 3:
         print(__doc__)
@@ -66,12 +91,12 @@ def main():
             ("after", "after", "After (branch)"),
         ):
             cell = scenario[key]
-            b = b64(cell["image"])
             cap = html.escape(cell["caption"])
+            cell_shots = shots(cell, tag_label, cap)
             cols.append(f"""
       <div class="panel">
         <div class="panel-tag {tag_class}"><span class="dot"></span>{tag_label}</div>
-        <div class="shot-wrap"><img src="data:image/png;base64,{b}" alt="{tag_label}: {cap}"></div>
+        {cell_shots}
         <div class="caption {tag_class}-cell">{cap}</div>
       </div>""")
         scenario_title = html.escape(scenario["title"])
@@ -109,6 +134,7 @@ def main():
   .panel-tag.after {{ background: var(--fixed-bg); color: var(--fixed); border-bottom: 1px solid var(--fixed-line); }}
   .panel-tag .dot {{ width: 0.5rem; height: 0.5rem; border-radius: 50%; background: currentColor; flex: none; }}
   .shot-wrap {{ overflow-x: auto; background: #fafaf8; display: flex; align-items: center; }}
+  .shot-wrap.context {{ border-bottom: 1px dashed var(--line); }}
   .shot-wrap img {{ display: block; width: 100%; height: auto; }}
   .caption {{ padding: 0.55rem 0.9rem; font-size: 0.78rem; color: var(--ink-soft); border-top: 1px solid var(--line); }}
   .caption.before-cell {{ color: #7a2c1c; }}

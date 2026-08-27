@@ -61,23 +61,32 @@ a jar into `WEB-INF/lib`. Check first:
 grep -m1 '<packaging>' path/to/module/pom.xml
 ```
 - `<packaging>jar</packaging>`, or no `<packaging>` tag at all since jar is Maven's default →
-  use `setup-instance.sh` as documented in step 1.
+  use `setup-instance.sh` as documented in step 1. It automates what `xwiki-deploy-extension`
+  describes for a core extension - replace the jar in `WEB-INF/lib`, restart - and adds the parts
+  that are specific to a comparison: building the module at an arbitrary git ref via a throwaway
+  worktree, and `--verify`.
 - `<packaging>xar</packaging>` (wiki pages, e.g. `xwiki-platform-annotation-ui`) → there is no
-  jar to copy. Use `setup-xar-instance.sh` instead (same `HEAD`-or-commit-ref interface, same
-  `--verify` flag), which builds the XAR and deploys it via the wiki's own Import feature - see
-  its header comment for the full usage and for *why not the Extension Manager*: version-mismatch
-  dependency checks make that route unreliable on a branch that has drifted from the cached test
-  instance's version.
+  jar to copy. Build the module at the ref you want, then **follow the `xwiki-deploy-extension`
+  skill** to install the resulting XAR into the already-running instance over the REST job API,
+  including its uninstall-then-reinstall step, which you will hit on the second state because the
+  first one is already installed. Do not re-derive that flow here.
+
+  Fallback: that route is the Extension Manager, so it cross-checks the XAR's declared dependency
+  versions against the instance's bundled core jars and fails outright with
+  `InstallException: Dependency [...] is not compatible with core extension feature [...]` as soon
+  as the branch's `${project.version}` has drifted from the cached instance's version - a rebase
+  bumping 18.6.0-SNAPSHOT to 18.7.0-SNAPSHOT is enough. When that happens, use
+  `setup-xar-instance.sh`, which builds at a git ref and pushes the XAR through the classic
+  Administration > Import page instead, overwriting the named documents with no dependency graph
+  involved:
   ```bash
   "$XWIKI_UI_SKILL"/setup-xar-instance.sh \
     --verify 'AnnotationCode.Style:your-distinctive-css-class' \
     xwiki-platform-core/xwiki-platform-annotation/xwiki-platform-annotation-ui \
     HEAD
   ```
-  Note this script talks to an **already-running** instance over HTTP (`--base-url`, default
-  `http://localhost:8080`) rather than starting and stopping it - start the instance yourself
-  first (`cd <instance-dir> && ./start_xwiki.sh &`) the way step 1's jar-swap flow does
-  internally.
+  Both routes need the instance **already running** - start it yourself first
+  (`cd <instance-dir> && ./start_xwiki.sh &`) the way step 1's jar-swap flow does internally.
 - A plain **static** CSS/JS resource served straight from `webapps/xwiki/resources/...` (e.g.
   flamingo's `comments.css`/`comments.js`, packaged in a `war` module) is neither a jar nor a
   xar, just files on disk. Use
@@ -140,9 +149,14 @@ export XWIKI_TEST_INSTANCES_DIR="${XWIKI_TEST_INSTANCES_DIR:-${XDG_DATA_HOME:-$H
 
 Then look for something to reuse before building anything:
 ```bash
-pgrep -af 'STOP.KEY=xwiki'            # already running?
-ls "$XWIKI_TEST_INSTANCES_DIR"        # existing per-ticket distributions
+pgrep -af 'STOP.KEY=xwiki'                    # already running?
+lsof -nP -iTCP:8080 -sTCP:LISTEN              # and is it on the port we want?
+ls "$XWIKI_TEST_INSTANCES_DIR"                # existing per-ticket distributions
 ```
+`setup-instance.sh` stops and restarts the instance it deploys into, so check *whose* instance is
+on 8080 first. The rule `xwiki-build` states for Docker ITs applies here unchanged: never stop an
+XWiki instance this session did not start. If the port belongs to something the user is running,
+ask before touching it rather than restarting it underneath them.
 If a distribution of the **same xwiki version** as the branch already exists under
 `$XWIKI_TEST_INSTANCES_DIR/<other-ticket>-test/`, copy it - typically instant on a
 copy-on-write filesystem, versus 30-60+ minutes to build one from scratch:
@@ -155,11 +169,12 @@ Confirm the version matches:
 `grep -m1 '<version>' xwiki-platform-core/xwiki-platform-oldcore/pom.xml`.
 
 If the app or feature you need (e.g. AppWithinMinutes) is not installed on that instance - a 404
-on its main page - install it via the Extension Manager UI: Administration > Extensions > search
-with repo=`local` (it is usually already resolved in `data/extension/repository/` from the
-flavor's dependencies) > Install > Continue. Do NOT click through an uninstall-looking flow by
-accident: if a "Continue" button appears offering to delete wiki pages, stop and re-check state
-with a `repo=installed` search before clicking anything further.
+on its main page - install it by following the `xwiki-deploy-extension` skill; it is usually
+already resolved in `data/extension/repository/` from the flavor's dependencies, so no download
+is needed. Doing it through the Administration > Extensions UI instead works too, but take care
+not to click through an uninstall-looking flow by accident: if a "Continue" button appears
+offering to delete wiki pages, stop and re-check state with a `repo=installed` search before
+clicking anything further.
 
 ### 1. Capture the "after" (current branch) screenshots
 
@@ -212,11 +227,15 @@ at the same time, like preparing the "before" worktree build - follow that fixed
 Piping through a non-`-f` `tail -80` or similar summarizer buffers *all* output until the whole
 script exits, defeating the point of watching it live.
 
-**Gotcha (oldcore specifically):** `xwiki-platform-oldcore` classes are woven via AspectJ into
-`xwiki-platform-legacy-oldcore-<version>.jar` for backward compatibility - THAT jar, not
-oldcore's own undeployed jar, is what is actually in `webapps/xwiki/WEB-INF/lib/`. Always pass
-the legacy-oldcore module as an extra module when the fix touches oldcore. For other modules, if
-the screenshot does not reflect the change, find the right jar with:
+**Gotcha - the jar you changed may not be the jar that ships.** When a `-legacy` module weaves
+the changed module with AspectJ, the woven jar is what sits in `webapps/xwiki/WEB-INF/lib/` and
+the original is not deployed standalone, so swapping only the module you edited changes nothing
+on screen. `xwiki-build` owns this rule and the way to find such a module
+(`grep -rl '<weaveDependency>' --include=pom.xml`); the consequence here is that the legacy module
+must be passed as an extra module so *its* jar is the one swapped. `xwiki-platform-oldcore` is
+the case you will hit most - always pass
+`xwiki-platform-core/xwiki-platform-legacy/xwiki-platform-legacy-oldcore` alongside it. If a
+screenshot still does not reflect the change, confirm which jar actually ships the class:
 ```bash
 unzip -l webapps/xwiki/WEB-INF/lib/*.jar 2>/dev/null | grep -B20 YourChangedClass.class | grep Archive
 ```

@@ -26,16 +26,14 @@
 # <git-ref-or-HEAD> "HEAD" to build the current working tree as-is, or a commit-ish (e.g. the
 #                   commit before your fix) to build via a throwaway git worktree, left in
 #                   <repo>/.git/xwiki-ui-before-after-worktree and cleaned up automatically.
-# extra-module-dir  IMPORTANT: xwiki-platform-oldcore classes are woven into
-#                   xwiki-platform-legacy-oldcore's jar via AspectJ for backward compatibility.
-#                   The actual runtime jar in webapps/xwiki/WEB-INF/lib is
-#                   xwiki-platform-legacy-oldcore-<version>.jar, NOT xwiki-platform-oldcore's own
-#                   jar (which isn't deployed standalone). If your fix touches oldcore, always
-#                   pass xwiki-platform-core/xwiki-platform-legacy/xwiki-platform-legacy-oldcore
-#                   as an extra module (built after the primary one). Check other modules the
-#                   same way if the screenshot doesn't reflect your change: unzip -l the jar in
-#                   WEB-INF/lib and grep for your changed .class file to find which jar actually
-#                   ships it.
+# extra-module-dir  Additional modules to build and swap, in the order given. Needed whenever a
+#                   -legacy module weaves the module you changed: the woven jar is what ships in
+#                   WEB-INF/lib, so the original alone changes nothing on screen. The xwiki-build
+#                   skill owns that rule and how to spot such a module; the common case is a fix
+#                   in xwiki-platform-oldcore, which needs
+#                   xwiki-platform-core/xwiki-platform-legacy/xwiki-platform-legacy-oldcore
+#                   passed here. If a screenshot doesn't reflect your change, unzip -l the jars in
+#                   WEB-INF/lib and grep for your changed .class to see which one ships it.
 #
 # Progress log: every run tees its full output to <instance-dir>/setup-instance.log (truncated
 # each run). Keep <instance-dir> outside any git-tracked checkout (see $XWIKI_TEST_INSTANCES_DIR
@@ -45,6 +43,18 @@
 # piping through a non-`-f` `tail -N` or similar summarizer buffers ALL output until the whole
 # script exits, which defeats the purpose of watching it live.
 set -euo pipefail
+
+# Build with the JDK the branch targets, per the xwiki-build skill: xmvn (from xwiki-dev-tools)
+# reads xwiki.java.version from the pom, exports the matching JAVA_HOME, then delegates to mvn.
+# It matters more here than in a normal build, since this script deliberately builds OLD commits,
+# which are the ones most likely to target an older Java than the machine default. Without it a
+# too-new JDK fails in ways that read as code problems and are not - see xwiki-build for how to
+# select the JDK by hand when xmvn is not installed.
+if command -v xmvn >/dev/null 2>&1; then
+  MVN=xmvn
+else
+  MVN=mvn
+fi
 
 VERIFY_SPECS=()
 while [[ "${1:-}" == --verify ]]; do
@@ -67,7 +77,7 @@ WORKTREE_DIR="$REPO_ROOT/.git/xwiki-ui-before-after-worktree"
 build_module() {
   local dir="$1"
   echo "--- building $dir ---"
-  (cd "$dir" && mvn -q clean install -DskipTests \
+  (cd "$dir" && "$MVN" -q clean install -DskipTests \
     -Dxwiki.revapi.skip=true -Dspoon.skip=true -Dcheckstyle.skip=true \
     -Dspotbugs.skip=true -Dlicense.skip=true)
 }
@@ -115,8 +125,8 @@ echo "--- swapping jar(s) into $INSTANCE_DIR ---"
 evaluate() {
   # -o (offline) first since it's faster and works once maven-help-plugin is cached; fall back
   # to online on the first-ever run on a machine that doesn't have it yet.
-  (cd "$1" && mvn -q -o help:evaluate -Dexpression="$2" -DforceStdout 2>/dev/null) \
-    || (cd "$1" && mvn -q help:evaluate -Dexpression="$2" -DforceStdout)
+  (cd "$1" && "$MVN" -q -o help:evaluate -Dexpression="$2" -DforceStdout 2>/dev/null) \
+    || (cd "$1" && "$MVN" -q help:evaluate -Dexpression="$2" -DforceStdout)
 }
 # For each --verify spec, run it against the jar of whichever module's ARTIFACT_ID contains
 # the spec's jarHint - tying verification to the exact jar this run just swapped, rather than

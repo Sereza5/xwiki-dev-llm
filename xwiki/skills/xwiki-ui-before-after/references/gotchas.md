@@ -87,8 +87,10 @@ debug shots at each step - without noticing until token usage is already high.
   what was on disk *at build time*.
 - A branch open for a while, rebased since, can end up on a newer `${project.version}` than a
   cached test instance. This breaks the Extension Manager's install job for xar modules
-  (`InstallException: Dependency [...] is not compatible with core extension feature [...]`).
-  `setup-xar-instance.sh` bypasses it entirely by using the raw wiki Import flow instead.
+  (`InstallException: Dependency [...] is not compatible with core extension feature [...]`), and
+  therefore the `xwiki-deploy-extension` route that SKILL.md sends you to first. That specific
+  failure is the one case where `setup-xar-instance.sh` earns its keep: it pushes the XAR through
+  the raw wiki Import flow, which has no dependency graph to be incompatible with.
 - A stale pre-built `.min.css`/`.min.js` sibling is served in preference to the raw file whenever
   a template loads it via `$xwiki.get('ssfx').use('path/to/foo.css', true)`, so overwriting only
   the raw file and restarting Jetty has zero visible effect. `sync-static-resource.sh` refreshes

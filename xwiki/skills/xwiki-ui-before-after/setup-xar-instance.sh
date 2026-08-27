@@ -4,6 +4,10 @@
 # setup-instance.sh's jar-swap, for modules like xwiki-platform-annotation-ui where
 # <packaging>xar</packaging> means there is no jar to copy into WEB-INF/lib.
 #
+# Prefer the xwiki-deploy-extension skill over this script. It installs a XAR through the REST
+# job API and is the shared, maintained way to deploy an extension; this script only exists for
+# the one case that route cannot handle, described next.
+#
 # Why not the Extension Manager: its install job cross-checks the XAR's declared dependency
 # versions against the instance's bundled core jars, and fails outright
 # ("InstallException: Dependency [...] is not compatible with core extension feature [...]") the
@@ -46,6 +50,18 @@
 # all and don't go through Import.
 set -euo pipefail
 
+# Build with the JDK the branch targets, per the xwiki-build skill: xmvn (from xwiki-dev-tools)
+# reads xwiki.java.version from the pom, exports the matching JAVA_HOME, then delegates to mvn.
+# It matters more here than in a normal build, since this script deliberately builds OLD commits,
+# which are the ones most likely to target an older Java than the machine default. Without it a
+# too-new JDK fails in ways that read as code problems and are not - see xwiki-build for how to
+# select the JDK by hand when xmvn is not installed.
+if command -v xmvn >/dev/null 2>&1; then
+  MVN=xmvn
+else
+  MVN=mvn
+fi
+
 BASE_URL="http://localhost:8080"
 XWIKI_USER="Admin:admin"
 VERIFY_SPECS=()
@@ -79,14 +95,14 @@ trap 'rm -f "$COOKIE_JAR"' EXIT
 build_module() {
   local dir="$1"
   echo "--- building $dir ---"
-  (cd "$dir" && mvn -q clean package -DskipTests \
+  (cd "$dir" && "$MVN" -q clean package -DskipTests \
     -Dxwiki.revapi.skip=true -Dspoon.skip=true -Dcheckstyle.skip=true \
     -Dspotbugs.skip=true -Dlicense.skip=true)
 }
 
 evaluate() {
-  (cd "$1" && mvn -q -o help:evaluate -Dexpression="$2" -DforceStdout 2>/dev/null) \
-    || (cd "$1" && mvn -q help:evaluate -Dexpression="$2" -DforceStdout)
+  (cd "$1" && "$MVN" -q -o help:evaluate -Dexpression="$2" -DforceStdout 2>/dev/null) \
+    || (cd "$1" && "$MVN" -q help:evaluate -Dexpression="$2" -DforceStdout)
 }
 
 # A fresh form_token has to come from a real rendered page - it's session-bound, and a stale one

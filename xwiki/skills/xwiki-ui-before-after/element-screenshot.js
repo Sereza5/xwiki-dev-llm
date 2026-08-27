@@ -12,6 +12,13 @@
 //
 // If you see a sliver of an adjacent element in the output, that's crop overshoot, not a bug
 // in the fix - tighten `pad` (or `bottomPad`/`topPad`/etc. individually) a few px at a time.
+//
+// opts.maxHeight caps the clip height while keeping the matched element's BOTTOM edge in frame,
+// which is how you take the wider "context" shot SKILL.md step 3 asks for: a band of the page
+// ending just below the element, rather than the element's own box. Padding alone cannot do this
+// - it only ever grows the box outwards from the element - so without the cap a context shot has
+// to be hand-rolled with page.screenshot({clip}).
+//   await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
 async function screenshotElement(page, selectors, outPath, opts = {}) {
   const list = Array.isArray(selectors) ? selectors : [selectors];
   const pad = opts.pad ?? 4;
@@ -35,13 +42,22 @@ async function screenshotElement(page, selectors, outPath, opts = {}) {
     throw new Error(`screenshotElement: none of the selectors matched: ${list.join(', ')}`);
   }
 
+  let y = Math.max(0, box.y - topPad);
+  let height = box.height + topPad + bottomPad;
+  if (opts.maxHeight && height > opts.maxHeight) {
+    // Keep the element's bottom edge: a context band is read upwards from what changed.
+    const bottom = y + height;
+    height = opts.maxHeight;
+    y = Math.max(0, bottom - height);
+  }
+
   await page.screenshot({
     path: outPath,
     clip: {
       x: Math.max(0, box.x - leftPad),
-      y: Math.max(0, box.y - topPad),
+      y,
       width: box.width + leftPad + rightPad,
-      height: box.height + topPad + bottomPad
+      height
     }
   });
 

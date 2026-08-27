@@ -126,10 +126,13 @@ serving a stale token to `curl`, since the exact same token string was observed 
 across a fresh login). Use a real Playwright session instead:
 ```js
 const { login } = require(process.env.XWIKI_UI_SKILL + '/xwiki-login');
-await login(page, process.env.XWIKI_BASE_URL);
+await login(page);   // reads XWIKI_BASE_URL, XWIKI_ADMIN_USER, XWIKI_ADMIN_PASS
 // ...navigate, select text / fill a form / click the real button as a user would...
 ```
-This reads the CSRF token live off the actually-rendered page, so it is always valid.
+This reads the CSRF token live off the actually-rendered page, so it is always valid. `login()`
+accepts a base URL with or without the `/xwiki` suffix and throws if no login form appears, rather
+than continuing unauthenticated. Note that XWiki serves the login page with HTTP **401** by
+design, form included - do not treat that status as a failure in your own scripts.
 
 ## Procedure
 
@@ -166,6 +169,16 @@ ls "$XWIKI_TEST_INSTANCES_DIR"                # existing per-ticket distribution
 on 8080 first. The rule `xwiki-build` states for Docker ITs applies here unchanged: never stop an
 XWiki instance this session did not start. If the port belongs to something the user is running,
 ask before touching it rather than restarting it underneath them.
+
+**Every path in this skill needs a running instance**, including the two file-copy ones - "no
+Maven build and no restart" does not mean nothing to manage. If nothing is listening, start one
+yourself and wait for it to answer, because a capture run against a half-started Jetty fails in
+confusing ways (expect roughly 40s):
+```bash
+(cd "$INSTANCE_DIR" && ./start_xwiki.sh > "$INSTANCE_DIR/xwiki-start.log" 2>&1 &)
+until curl -sf -o /dev/null "$XWIKI_BASE_URL/bin/view/Main/WebHome"; do sleep 2; done; echo up
+```
+An instance you started is yours to stop when you are done; one you found is not.
 
 If a distribution of a suitable version already exists under
 `$XWIKI_TEST_INSTANCES_DIR/<other-ticket>-test/`, copy it - typically instant on a
@@ -253,7 +266,7 @@ deployed; it cannot prove the page renders differently, and the file-copy paths
 in both states, just before screenshotting:
 ```js
 const info = await page.evaluate(() => {
-  const el = document.querySelector('#backtoedit .btn-group :last-child');
+  const el = document.querySelector('#backtoedit input[name="action_saveandcontinue"]');
   return { cls: el.className, radius: getComputedStyle(el).borderTopRightRadius };
 });
 console.log(state, JSON.stringify(info));
@@ -263,6 +276,26 @@ console.log(state, JSON.stringify(info));
 Two log lines like that are proof the two states really differ, and they cost no vision tokens. A
 screenshot pair that *looks* different is weaker evidence than the measured property, and one that
 looks identical is otherwise indistinguishable from a swap that silently did nothing.
+
+**Address the element by name, never by position.** A positional selector is the classic way to
+assert on the wrong node and get a value that is identical in both states - which step 4 tells you
+to read as a failed deploy, sending you to debug the deploy instead of the selector. In this very
+template, `#backtoedit .btn-group :last-child` looks reasonable and is wrong: `#editActionButton`
+emits a hidden `<input name="xaction">` after each submit button, so the group's four children are
+`action_save`, `xaction`, `action_saveandcontinue`, `xaction`, and `:last-child` is a hidden input
+whose class and radius never change. Dump the candidates before trusting a selector:
+```js
+console.log(await page.evaluate(() => [...document.querySelectorAll('#backtoedit .btn-group > *')]
+  .map(e => `${e.tagName}[type=${e.type}][name=${e.name}]`)));
+```
+
+**Also check the deploy itself on the file-copy paths.** The DOM assertion proves what *rendered*;
+it cannot tell a sync that wrote to the wrong path from a fix that does nothing, and
+`sync-static-resource.sh` prints `synced ...` unconditionally. One grep on the file inside the
+instance closes that gap, per state:
+```bash
+grep -c btn-group-last "$INSTANCE"/webapps/xwiki/skins/flamingo/previewactions.vm   # 0 before, 1 after
+```
 
 **The ref for the "before" state** is normally `<fix-commit>~1`, which builds via a throwaway git
 worktree and cleans it up. If the fix is **not committed yet**, `<fix-commit>~1` has nothing to
@@ -319,9 +352,22 @@ overshoot, not a bug in the fix - tighten the relevant side's pad a few px at a 
 the exact pixels that changed proves *what* changed but not *where in the product* it is, and a
 reader unfamiliar with the selector or feature cannot place an isolated element on their own. So
 take a second, wider shot of the same state, with enough recognizable chrome to answer "where am
-I looking?": a toolbar, a panel header, page navigation, the neighbouring buttons. Seeing the
-CKEditor toolbar above a hint line, or a settings panel's header above a toggle, answers that for
-free.
+I looking?": a page title, a toolbar, a panel header, page navigation.
+
+A context shot is a **band of the page around the element**, not the element's own box one level
+up. Padding cannot express that - it only grows the box outwards - so pass `maxHeight`, which caps
+the clip while keeping the element's bottom edge in frame, and read the band upwards from what
+changed:
+```js
+// ~260px of page ending just below the action bar: title, content, then the buttons.
+await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
+```
+Beware the direction: in Preview mode the action bar sits *below* the previewed content, so a band
+anchored at the top of the content column excludes the buttons entirely and produces
+**byte-identical** before/after context shots. Anchoring on the element avoids that by
+construction. A shot of the immediate parent is not a context shot either - `#backtoedit` alone is
+807x63, four buttons and no chrome, which is the "one scenario per zoom level" mistake step 5
+forbids, just inside one panel.
 
 **Both shots belong to the same scenario.** Pass the wider one as the optional `context` key
 alongside `image` in step 5's config, and the builder stacks it above the detail crop inside the
@@ -356,9 +402,15 @@ Steps 2 and 3 run three times in total:
    code rather than the pre-fix build. Do not skip this; the next session, or the user, will
    assume the instance matches the branch.
 
-Compare the two assertion log lines before going further. If they are identical, stop and find
-out why - the comparison has nothing to show, and the cause is a deploy that did not land, not
-a screenshot problem.
+Before going further, check that the two states actually differ - both in the measurement and in
+the pixels:
+```bash
+md5sum before-*.png after-*.png     # a matching pair means that crop captured nothing that changed
+```
+If the assertion log lines are identical, stop: the comparison has nothing to show, and the cause
+is a deploy that did not land or a selector pointing at the wrong node, not a screenshot problem.
+If the logs differ but a *crop* pair has matching checksums, the deploy was fine and that crop
+region is wrong - it excludes the element that changed.
 
 ### 5. Build the comparison HTML
 
@@ -370,6 +422,10 @@ python3 "$XWIKI_UI_SKILL"/build-comparison.py \
 See the script's docstring at the top of the file for the config shape: `ticket`, `title`,
 `repro`, and a `scenarios` array where each entry has a `title` and `before`/`after` objects
 (`image` path, an optional wider `context` path, plus a one-line `caption`).
+
+**`repro` is interpolated as raw HTML; everything else is escaped.** So the repro line may contain
+`<code>` and `<em>` - and must have its own `&`, `<` and `>` escaped by hand - while a caption or
+title containing `<code>` renders as literal angle brackets. Keep captions plain prose.
 
 **If the user mentions a design, prototype or mockup** - a Figma or JIRA-attached image to
 compare the implementation against - do not wedge it into the 2-column before/after. Use
@@ -442,9 +498,14 @@ they ask for one.
 
 ## Worked example: a skin template (XWIKI-23590)
 
-The fix added a `btn-group-last` CSS class to one button in
-`flamingo/previewactions.vm`, so the Preview-mode Save button gets rounded right corners. A
-`pom`-packaged skin module: file-copy deploy, no build, no restart.
+The fix added a `btn-group-last` CSS class to one button in `flamingo/previewactions.vm`, so the
+last button of the Preview-mode Save group gets rounded right corners. A `pom`-packaged skin
+module: file-copy deploy, no build, no restart.
+
+Mind which button that is: `#editActionButton`'s first argument is the *label* key and its second
+is the *action*, so the button labelled "Save" is `input[name="action_saveandcontinue"]` - the one
+that changed - while `action_save` is the unchanged primary button labelled "Save & View". Taking
+the label at face value asserts on the wrong element.
 
 ```bash
 # 0. environment, and reuse the instance that is already running
@@ -457,31 +518,36 @@ VM=xwiki-platform-core/xwiki-platform-flamingo/xwiki-platform-flamingo-skin/xwik
 # 1. fixture: any page's wiki editor, then Preview - found by grepping .vm for btn-group-last
 # 2+3. after: the branch tip is already what the instance serves
 node shoot-preview.js after
-# after {"buttonCount":2,"lastClass":"btn btn-default btn-group-last","lastRadius":"7px / 7px"}
+# after {"cls":"btn btn-default btn-group-last","radius":"7px"}
 
 # 2+3. before: read the pre-fix file out of git without touching the working tree
 git show <fix-commit>~1:"$VM" > /path/to/scratchpad/previewactions.before.vm
 "$XWIKI_UI_SKILL"/sync-static-resource.sh --target-root skins "$INSTANCE" \
   /path/to/scratchpad/previewactions.before.vm flamingo/previewactions.vm
 node shoot-preview.js before
-# before {"buttonCount":2,"lastClass":"btn btn-default","lastRadius":"0px / 0px"}
+# before {"cls":"btn btn-default","radius":"0px"}
+grep -c btn-group-last "$INSTANCE"/webapps/xwiki/skins/flamingo/previewactions.vm   # 0 = before is deployed
 
 # 4. restore
 "$XWIKI_UI_SKILL"/sync-static-resource.sh --target-root skins "$INSTANCE" "$VM" \
   flamingo/previewactions.vm
 
-# 5+6. one scenario, context shot above the detail crop
+# 5+6. one scenario, context band above the detail crop
 python3 "$XWIKI_UI_SKILL"/build-comparison.py comparison.html config.json
 node "$XWIKI_UI_SKILL"/export-to-png.js comparison.html comparison.png
 convert comparison.png -gravity South -background "#f5f6f2" -splice 0x1 \
   -fuzz 2% -trim +repage -bordercolor "#f5f6f2" -border 40 comparison-trimmed.png
 ```
 
-`shoot-preview.js` is the per-ticket capture script from step 3: log in with the `xwiki-login`
-helper, open the wiki editor, click `input[name="action_preview"]`, log the assertion, then save
-`screenshotElement(page, ['#backtoedit .btn-group'], ...)` as the detail crop and
-`screenshotElement(page, ['#backtoedit'], ...)` as the `context` shot. Total run time was a few
-minutes, nearly all of it writing that script - no Maven build was involved at any point.
+`shoot-preview.js` is the per-ticket capture script from step 3: `await login(page)`, open the
+wiki editor, click `input[name="action_preview"]`, log the assertion, then save two crops -
+```js
+await screenshotElement(page, ['#backtoedit .btn-group'], detailPath, {pad: 2});
+await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
+```
+- the second being the `context` band, which comes out as the page title, the previewed content and
+the action bar beneath it. Total run time was a few minutes, nearly all of it writing that script -
+no Maven build was involved at any point.
 
 ## Further reading
 

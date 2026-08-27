@@ -36,6 +36,11 @@ Layout rules (don't drift from these without being asked to):
   optional "context" key - never as a second scenario comparing the same element again, which
   reads as two findings and leaves each half without what the other one carries.
 
+Escaping: `repro` is interpolated into the page as RAW HTML, so it may contain markup such as
+`<code>` and must have any literal `&`, `<` or `>` escaped by hand. Every other field - `ticket`,
+`title`, the scenario titles and the captions - is passed through html.escape(), so markup in
+those renders as visible angle brackets. Keep captions plain prose.
+
 Crop screenshots with imagemagick first if they have dead whitespace, e.g.:
   convert shot.png -crop 1000x420+0+0 +repage shot-crop.png
 """

@@ -31,6 +31,11 @@ paragraph, and every image keeps a one-line caption underneath it. Each of the t
 takes the same optional "context" key - a wider shot rendered above the detail crop in that same
 cell, rather than a second scenario re-comparing the element at another zoom level.
 
+Escaping: `repro` is interpolated into the page as RAW HTML, so it may contain markup such as
+`<code>` and must have any literal `&`, `<` or `>` escaped by hand. Every other field - `ticket`,
+`title`, the scenario titles and the captions - is passed through html.escape(), so markup in
+those renders as visible angle brackets. Keep captions plain prose.
+
 Crop screenshots (and the design image) with imagemagick first if they have dead whitespace, e.g.:
   convert design.png -crop 1750x260+950+270 +repage design-crop.png
 

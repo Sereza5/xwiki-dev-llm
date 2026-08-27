@@ -383,8 +383,8 @@ For a fixture that needs a logged-in session (creating a comment or annotation, 
 form), use the `xwiki-login` helper rather than re-typing the fill-and-submit boilerplate; see
 "Authenticated write actions" above for why that matters more than it looks.
 
-Keep these captures cheap in vision tokens - crop before you Read, and do not re-Read an
-unchanged file. `references/gotchas.md` has the full cost-discipline checklist.
+Keep these captures cheap in vision tokens: crop before you Read, and do not re-Read a file no
+step has changed.
 
 ### 4. Run both states, then restore
 
@@ -521,11 +521,10 @@ The whole run took minutes, nearly all of it writing that script - no Maven buil
 
 ## Further reading
 
-- `references/gotchas.md` - the failure modes that each cost real time to discover once: silent
-  `propadd` param names, the object editor's collapsible rows, jar-swap verification, stale
-  minified siblings, version drift between a branch and a cached instance, and the checklist for
-  keeping screenshot and debug reads cheap in tokens. Read it before debugging a fixture that
-  "should work".
+- `references/gotchas.md` - failure modes that each cost real time to discover once, grouped by
+  fixtures, selectors/crops/diffs, and builds/deployment. Read it before debugging a fixture that
+  "should work", a selector that reads the same in both states, or a swap that seems to do
+  nothing.
 - `references/release-notes-comparison.md` - how to produce the separate, simplified comparison
   for end users, which is a different artifact from the dev-facing one built in steps 5 and 6.
 - `references/design-comparison.md` - the 3-column before / design prototype / after layout, for

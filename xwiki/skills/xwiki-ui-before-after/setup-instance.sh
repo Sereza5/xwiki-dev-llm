@@ -44,6 +44,14 @@
 # script exits, which defeats the purpose of watching it live.
 set -euo pipefail
 
+# Print this script's own header comment as the usage text, so `--help` and a missing argument
+# both explain the interface instead of dying on an unbound variable.
+usage() {
+  sed -n '2,${/^#/!q; s/^#\( \|$\)//; p}' "$0"
+  exit "${1:-1}"
+}
+if [[ "${1:-}" == -h || "${1:-}" == --help || $# -eq 0 ]]; then usage 0; fi
+
 # Build with the JDK the branch targets, per the xwiki-build skill: xmvn (from xwiki-dev-tools)
 # reads xwiki.java.version from the pom, exports the matching JAVA_HOME, then delegates to mvn.
 # It matters more here than in a normal build, since this script deliberately builds OLD commits,
@@ -62,6 +70,12 @@ while [[ "${1:-}" == --verify ]]; do
   shift 2
 done
 
+if [ $# -lt 3 ]; then
+  echo "ERROR: expected <instance-dir> <module-dir> <git-ref-or-HEAD> [extra-module-dir ...]" >&2
+  echo >&2
+  usage 1 >&2
+fi
+
 INSTANCE_DIR="$1"
 MODULE_DIR="$2"
 GIT_REF="$3"
@@ -72,7 +86,12 @@ mkdir -p "$INSTANCE_DIR"
 exec > >(tee "$INSTANCE_DIR/setup-instance.log") 2>&1
 
 REPO_ROOT="$(cd "$MODULE_DIR" && git rev-parse --show-toplevel)"
-WORKTREE_DIR="$REPO_ROOT/.git/xwiki-ui-before-after-worktree"
+# Not "$REPO_ROOT/.git": in a LINKED worktree that is a *file* pointing at the real git dir, so
+# creating anything underneath it fails with "Not a directory". --git-common-dir resolves to the
+# shared git directory from a main checkout and a linked worktree alike. cd+pwd because git may
+# answer with a path relative to the module directory.
+GIT_COMMON_DIR="$(cd "$MODULE_DIR" && cd "$(git rev-parse --git-common-dir)" && pwd)"
+WORKTREE_DIR="$GIT_COMMON_DIR/xwiki-ui-before-after-worktree"
 
 build_module() {
   local dir="$1"

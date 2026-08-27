@@ -53,8 +53,11 @@ have misunderstood the ref you were given, not that committing is the fix.
 ```bash
 grep -m1 '<packaging>' path/to/module/pom.xml
 ```
-- `<packaging>jar</packaging>`, or no `<packaging>` tag at all since jar is Maven's default →
-  use `setup-instance.sh`, as in step 2. It automates what `xwiki-deploy-extension` describes for
+- `<packaging>jar</packaging>`, `<packaging>webjar</packaging>`, or no `<packaging>` tag at all
+  since jar is Maven's default → use `setup-instance.sh`, as in step 2. A webjar packages its
+  `src/main/webjar/*.js|css` into an ordinary jar under `WEB-INF/lib`, so the same swap applies -
+  and note that its assets are **minified at build time**, so despite being "just JS and CSS" this
+  path does need Maven and cannot be short-cut with `sync-static-resource.sh`. It automates what `xwiki-deploy-extension` describes for
   a core extension - replace the jar in `WEB-INF/lib`, restart - and adds the parts that are
   specific to a comparison: building the module at an arbitrary git ref via a throwaway worktree,
   and `--verify`.
@@ -228,6 +231,15 @@ node "$XWIKI_UI_SKILL"/setup-class-object.js \
 `expand-and-shoot.js` is the matching capture script for that fixture. Use a **fresh space name
 per state** (`...After`, `...Before`) so a stale page can never be mistaken for the other state.
 
+**Dump the fixture's container once before writing the capture script.** Reaching for a selector
+you assumed exists is the most common way to burn a 30-second Playwright timeout: XWiki's header
+search input, for instance, is rendered `disabled` and stays hidden until the magnifier
+(`#globalsearch button[aria-controls="headerglobalsearchinput"]`) is clicked. One `outerHTML` dump
+answers what is actually there, and in what state:
+```js
+console.log(await page.evaluate(() => document.querySelector('#globalsearch').outerHTML));
+```
+
 Whatever the fixture, name it in the `repro` line of the comparison (step 5) - a reader's first
 question is how to see this themselves.
 
@@ -236,11 +248,19 @@ question is how to see this themselves.
 Everything here applies to each state in turn: run it once with the "after" ref, once with the
 "before" ref. Which script to use comes from the packaging check above.
 
-For a jar module, run `setup-instance.sh` **in the foreground**, not backgrounded. Every later
-step depends on it finishing first, so there is nothing to overlap it with - backgrounding just
-trades live output for having to poll a task file. It prints its own progress
-(`--- building ... ---`, `--- stopping instance ---`) and tees its full output to
-`<instance-dir>/setup-instance.log`.
+For a jar module, `setup-instance.sh` builds and swaps in one go. Nothing can overlap it, since
+every later step needs it finished - but do not simply run it in the foreground either: a
+first-time module build can exceed the 10-minute ceiling most tool harnesses put on a single
+command, and the script's `tee` pipeline can hold the call open past its own logical end, so a run
+that actually succeeded comes back as a timeout kill. Launch it detached and wait on its log,
+which it writes to `<instance-dir>/setup-instance.log`:
+```bash
+nohup "$XWIKI_UI_SKILL"/setup-instance.sh ... > /dev/null 2>&1 &
+until grep -qE "instance is up|FAILED|FAILURE" "$INSTANCE_DIR/setup-instance.log"; do sleep 5; done
+tail -5 "$INSTANCE_DIR/setup-instance.log"
+```
+Wait on the log rather than piping the script's stdout through a summarizer: a non-`-f`
+`tail -80` buffers *all* output until the process exits, which defeats watching it live.
 
 ```bash
 "$XWIKI_UI_SKILL"/setup-instance.sh \
@@ -257,8 +277,9 @@ the jar (a `*` glob covers version-numbered path segments such as `18.6.0-SNAPSH
 `xwiki-icon` is a string that must appear in that file's content. Because the script matches the
 hint against each swapped module's artifactId rather than re-searching `WEB-INF/lib`, it cannot
 accidentally match an unrelated jar with a similar name - `tree-webjar` will not silently match
-`xwiki-platform-index-tree-webjar`'s neighbours. Run `setup-instance.sh` with no args for the full
-flag docs.
+`xwiki-platform-index-tree-webjar`'s neighbours. The spec is split on its first two colons only,
+so `pattern` may itself contain colons and spaces - `containerTagName: 'button'` is valid. Run
+`setup-instance.sh` with no arguments, or `--help`, for the full flag docs.
 
 **Then assert the state from the capture script too.** `--verify` proves the right *bytes* were
 deployed; it cannot prove the page renders differently, and the file-copy paths
@@ -362,12 +383,18 @@ changed:
 // ~260px of page ending just below the action bar: title, content, then the buttons.
 await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
 ```
-Beware the direction: in Preview mode the action bar sits *below* the previewed content, so a band
-anchored at the top of the content column excludes the buttons entirely and produces
-**byte-identical** before/after context shots. Anchoring on the element avoids that by
-construction. A shot of the immediate parent is not a context shot either - `#backtoedit` alone is
-807x63, four buttons and no chrome, which is the "one scenario per zoom level" mistake step 5
-forbids, just inside one panel.
+**Anchor towards the chrome, which is not always upwards.** `maxHeight` holds the element's bottom
+edge, which is right when the recognizable furniture sits above it - in Preview mode the action bar
+is below the previewed content, so a band anchored at the *top* of the content column drops the
+buttons entirely and yields two identical context shots. When the chrome sits above and beside the
+element instead - a suggestion row at the top of a panel, with the header bar and search field
+above it - bottom-anchoring cuts the wrong end off, and plain asymmetric padding is the better
+tool: `{leftPad: 260, rightPad: 8, topPad: 120, bottomPad: 190}`. Look at where the landmarks are
+before choosing.
+
+A shot of the immediate parent is not a context shot either - `#backtoedit` alone is 807x63, four
+buttons and no chrome, which is the "one scenario per zoom level" mistake step 5 forbids, just
+inside one panel.
 
 **Both shots belong to the same scenario.** Pass the wider one as the optional `context` key
 alongside `image` in step 5's config, and the builder stacks it above the detail crop inside the
@@ -402,15 +429,30 @@ Steps 2 and 3 run three times in total:
    code rather than the pre-fix build. Do not skip this; the next session, or the user, will
    assume the instance matches the branch.
 
-Before going further, check that the two states actually differ - both in the measurement and in
-the pixels:
+Before going further, check that the two states actually differ. **The assertion log lines are the
+authority**: if they are identical, stop - the comparison has nothing to show, and the cause is a
+deploy that did not land or a selector pointing at the wrong node, not a screenshot problem.
+
+For the pixels, measure the difference, do not checksum it. A screenshot of a live instance is not
+byte-reproducible - two captures of the *same* state routinely differ - so `md5sum` reports
+spurious differences, and proves nothing when it matches either:
 ```bash
-md5sum before-*.png after-*.png     # a matching pair means that crop captured nothing that changed
+compare -metric AE before-detail.png after-detail.png null: 2>&1   # count of differing pixels
 ```
-If the assertion log lines are identical, stop: the comparison has nothing to show, and the cause
-is a deploy that did not land or a selector pointing at the wrong node, not a screenshot problem.
-If the logs differ but a *crop* pair has matching checksums, the deploy was fine and that crop
-region is wrong - it excludes the element that changed.
+Do not read absolute thresholds into that number - it scales with the crop size and with how much
+of it changed. A corner-radius fix on a small button crop measured 155; a restyled suggestion row
+measured 3097; the same file against itself is 0. If you need to tell a small real change from
+noise, capture the *same* state twice and measure that pair first: that is your noise floor, and
+anything at or below it is not a difference.
+
+**A zero count is not automatically a bug.** Plenty of worthwhile fixes are semantic rather than
+visual - a `<button>` becoming an `<a href>` so it can be middle-clicked and reads correctly to a
+screen reader, an `aria-label` appearing, a heading level changing. If the assertions differ and
+the pixels do not, the fix is real and the *fixture* is the problem: find an interaction state
+where the two element types diverge, and compare that instead. Keyboard focus is the reliable one
+- a focused link takes the skin's underline and a text-hugging focus ring where a button takes a
+full-width box - and hover, `:active` or a rendered attribute dump work the same way. Say so in the
+caption rather than implying a visual regression that was never there.
 
 ### 5. Build the comparison HTML
 

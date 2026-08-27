@@ -78,12 +78,28 @@ grep -m1 '<packaging>' path/to/module/pom.xml
   `http://localhost:8080`) rather than starting and stopping it - start the instance yourself
   first (`cd <instance-dir> && ./start_xwiki.sh &`) the way step 1's jar-swap flow does
   internally.
-- If the UI change also touches a plain **static** CSS/JS resource served straight from
-  `webapps/xwiki/resources/...` (e.g. flamingo's `comments.css`/`comments.js`, packaged in a
-  `war` module) - that is neither a jar nor a xar, just files on disk. Use
+- A plain **static** CSS/JS resource served straight from `webapps/xwiki/resources/...` (e.g.
+  flamingo's `comments.css`/`comments.js`, packaged in a `war` module) is neither a jar nor a
+  xar, just files on disk. Use
   `sync-static-resource.sh <instance-dir> <source-file> <relative-path-under-resources>`, which
   also refreshes any pre-built `.min.css`/`.min.js` sibling in lockstep. Copying only the raw
   file is a common silent no-op; see `references/gotchas.md`.
+- `<packaging>pom</packaging>` usually means a **resources-only** module whose files are copied
+  into the webapp as-is - most notably `xwiki-platform-flamingo-skin-resources`, whose `.vm`
+  templates and `.less` files land in `webapps/xwiki/skins/flamingo/`, *not* under `resources/`.
+  Same script, with the root spelled out:
+  ```bash
+  "$XWIKI_UI_SKILL"/sync-static-resource.sh --target-root skins \
+    "$INSTANCE_DIR" path/to/src/main/resources/flamingo/previewactions.vm \
+    flamingo/previewactions.vm
+  ```
+  When in doubt about the root, locate the file in the instance first:
+  `find "$INSTANCE_DIR"/webapps/xwiki -name previewactions.vm`.
+
+**These last two paths need neither a Maven build nor a restart** - the copied file is read off
+disk on the next page load. A before/after swap of a template or a stylesheet therefore costs
+seconds, so do not reach for `setup-instance.sh` and a module build when the change is only in
+files like these; check the packaging first, as above.
 
 A single feature change often spans more than one of these - an annotation redesign touching a
 xar module *and* a war module's static CSS/JS, for instance. Run the matching script per piece,
@@ -170,6 +186,24 @@ swapped - the script checks each swapped module's artifactId rather than re-sear
 `tree-webjar` also matching `xwiki-platform-index-tree-webjar`). `pathInJar` can use a `*` glob
 for version-numbered path segments (`.../18.6.0-SNAPSHOT/finder.js` → `.../*/finder.js`). Run
 `setup-instance.sh` with no args to see the full flag docs in the script header.
+
+**`--verify` has no equivalent on the file-copy paths.** `sync-static-resource.sh` only copies,
+so nothing there proves the swap changed what the page actually renders. Assert it from the
+capture script instead: have it `console.log` the exact property under comparison, just before
+taking the screenshot, in both states.
+```js
+const info = await page.evaluate(() => {
+  const el = document.querySelector('#backtoedit .btn-group :last-child');
+  return { cls: el.className, radius: getComputedStyle(el).borderTopRightRadius };
+});
+console.log(state, JSON.stringify(info));
+// before {"cls":"btn btn-default","radius":"0px"}
+// after  {"cls":"btn btn-default btn-group-last","radius":"7px"}
+```
+Two log lines like that are proof the two states really differ, and they cost no vision tokens.
+Do this on every path, jar included - a screenshot pair that *looks* different is weaker evidence
+than the measured property, and one that looks identical is otherwise indistinguishable from a
+swap that silently did nothing.
 
 Progress log: every run tees its output to `<instance-dir>/setup-instance.log`, truncated each
 run. If you do need to background the script - because you have genuinely independent work to do

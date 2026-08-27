@@ -30,6 +30,8 @@ debug shots at each step - without noticing until token usage is already high.
   the specific thing being checked - a class name, a matched selector, an HTTP status, a page
   version - so a one-line log answers the question instead of a screenshot. Save the screenshot
   to disk regardless so it is there if needed, but only Read it when the log alone cannot answer.
+  SKILL.md step 1 makes this mandatory for the before/after states themselves, where the logged
+  property is also what proves the swap landed.
 
 ## Fixtures and the object editor
 

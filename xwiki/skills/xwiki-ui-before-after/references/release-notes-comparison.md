@@ -15,8 +15,8 @@ script.
 - **Plain-language heading and captions** - "Easier to read hint in the editor", "The hint was
   hard to read" / "The hint is now easier to read". No CSS property names, hex codes or WCAG
   citations.
-- **Reuse the same underlying screenshots, but re-crop for this audience.** Per the "default to
-  some surrounding UI" note in SKILL.md step 1, include enough chrome (toolbar, nav bar) to place
+- **Reuse the same underlying screenshots, but re-crop for this audience.** Per the "capture the
+  surrounding UI too" note in SKILL.md step 3, include enough chrome (toolbar, nav bar) to place
   the feature, while actively cropping out anything that leaks a dev-only identifier a technical
   crop would not have bothered hiding. A breadcrumb or page title showing a scratch test-page name
   is exactly the kind of thing that sneaks into a wider shot and needs to be cut. Check each
@@ -24,4 +24,4 @@ script.
   it looked fine tightly cropped.
 - Otherwise reuse the same mechanics: a small inline `<style>` block, light/dark aware, with the
   same `--paper` background convention; a `before`/`after` two-column layout; then
-  `export-to-png.js` and the same trim command as SKILL.md step 5.
+  `export-to-png.js` and the same trim command as SKILL.md step 6.

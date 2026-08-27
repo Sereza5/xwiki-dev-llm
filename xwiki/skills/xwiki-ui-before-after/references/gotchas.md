@@ -65,6 +65,36 @@ debug shots at each step - without noticing until token usage is already high.
   bounding rect, or `offsetParent !== null`, before concluding that a click "doing nothing" is a
   real bug rather than a not-yet-loaded container.
 
+## Selectors, crops and diffs
+
+- **Why positional selectors bite in the skin templates.** `#editActionButton` emits a hidden
+  `<input name="xaction">` after each submit button, so `#backtoedit .btn-group`'s four children
+  are `action_save`, `xaction`, `action_saveandcontinue`, `xaction`. `:last-child` is therefore a
+  hidden input whose class and computed style never change between states - an assertion on it
+  reads as a failed deploy when the deploy was fine. Its first argument is the *label* key and its
+  second the *action*, so the button labelled "Save" is `action_saveandcontinue` and the one
+  labelled "Save & View" is `action_save`.
+- **`--verify` matches the artifactId, not the deployed filename.** The hint is checked against
+  each swapped module's artifactId rather than re-searched in `WEB-INF/lib`, so a short hint cannot
+  accidentally match a neighbouring jar with a similar name.
+- **Context-band anchoring, both failure directions.** `maxHeight` holds the element's bottom edge.
+  In Preview mode the action bar sits *below* the previewed content, so a band anchored at the top
+  of the content column drops the buttons and yields two identical context shots. A suggestion row
+  at the top of a panel is the mirror case - the header bar and search field are above it, so
+  bottom-anchoring cuts the wrong end off and asymmetric padding is the better tool.
+- **Pixel-diff magnitudes, measured.** `compare -metric AE` on a corner-radius fix in a small
+  button crop: 155. On a restyled suggestion row: 3097. A file against itself: 0. The number scales
+  with crop size and with how much of it changed, so treat those as illustrations, not thresholds,
+  and establish a noise floor by measuring two captures of the same state.
+- **Why a real browser session, not curl, for CSRF-protected writes.** Some endpoints - the
+  annotation-rest module's POST among them - reject `curl` with "Invalid or missing form token"
+  even with a scraped `form_token` and a real form-login session. Not fully root-caused; response
+  caching serving a stale token is the suspect, since the same token string was observed to survive
+  a fresh login. A Playwright session reads the token off the rendered page, so the question does
+  not arise.
+- **XWiki serves its login page with HTTP 401 by design**, form included. Do not treat that status
+  as a failure in your own scripts; wait for the form instead. `xwiki-login` already does.
+
 ## Builds, jars and deployment
 
 - `mvn install` on `xwiki-platform-legacy-oldcore` can fail with "Component registered several

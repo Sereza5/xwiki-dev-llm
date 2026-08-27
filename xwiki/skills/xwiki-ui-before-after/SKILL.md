@@ -40,11 +40,10 @@ and `setup-xar-instance.sh` already handle both cases you need without ever comm
 pass `HEAD` to build the working tree exactly as it sits (uncommitted changes and all), or pass
 a commit-ish to build it via their own throwaway worktree (`.git/xwiki-ui-before-after-worktree`,
 auto-cleaned). If the fix being compared is not committed yet, that is **not** a reason to commit
-it first - just use `HEAD` for the "after" build. This is a real failure mode, not a hypothetical
-one: an agent following this procedure amended the user's own commit mid-run trying to "make the
-before/after refs work", rewriting history nobody asked it to touch. If you ever find yourself
-reaching for `git commit`/`git add`/`--amend` while following these steps, stop - it means you
-have misunderstood the ref you were given, not that committing is the fix.
+it first - just use `HEAD` for the "after" build. An agent following an earlier draft of this
+procedure amended the user's own commit trying to "make the before/after refs work". If you find
+yourself reaching for `git commit`/`git add`/`--amend`, stop - you have misunderstood the ref you
+were given, not found a case where committing is the fix.
 
 ## Check the module's packaging before picking a deploy script
 
@@ -67,14 +66,12 @@ grep -m1 '<packaging>' path/to/module/pom.xml
   including its uninstall-then-reinstall step, which you will hit on the second state because the
   first one is already installed. Do not re-derive that flow here.
 
-  Fallback: that route is the Extension Manager, so it cross-checks the XAR's declared dependency
-  versions against the instance's bundled core jars and fails outright with
-  `InstallException: Dependency [...] is not compatible with core extension feature [...]` as soon
-  as the branch's `${project.version}` has drifted from the cached instance's version - a rebase
-  bumping 18.6.0-SNAPSHOT to 18.7.0-SNAPSHOT is enough. When that happens, use
-  `setup-xar-instance.sh`, which builds at a git ref and pushes the XAR through the classic
-  Administration > Import page instead, overwriting the named documents with no dependency graph
-  involved:
+  Fallback: that route is the Extension Manager, which refuses the install outright once the
+  branch's `${project.version}` has drifted from the cached instance's (`InstallException:
+  Dependency [...] is not compatible with core extension feature [...]`; see
+  `references/gotchas.md`). When that happens, use `setup-xar-instance.sh`, which builds at a git
+  ref and pushes the XAR through the classic Administration > Import page, with no dependency
+  graph involved:
   ```bash
   "$XWIKI_UI_SKILL"/setup-xar-instance.sh \
     --verify 'AnnotationCode.Style:your-distinctive-css-class' \
@@ -122,11 +119,8 @@ all against the same running instance.
 For **read-only** calls (checking that a page rendered correctly, exporting a XAR to verify
 content), `curl --user Admin:admin` is fine. For anything that **writes** through a form the
 browser would normally submit (creating a test annotation or comment, submitting any
-CSRF-protected POST), do not reach for `curl` even with a scraped `form_token` and a real
-form-login session - some endpoints, e.g. the annotation-rest module's POST, reject it with
-"Invalid or missing form token" for reasons not fully root-caused (suspected response caching
-serving a stale token to `curl`, since the exact same token string was observed to survive
-across a fresh login). Use a real Playwright session instead:
+CSRF-protected POST), `curl` fails CSRF checks even with a scraped `form_token` and a real
+form-login session - see `references/gotchas.md`. Use a real Playwright session instead:
 ```js
 const { login } = require(process.env.XWIKI_UI_SKILL + '/xwiki-login');
 await login(page);   // reads XWIKI_BASE_URL, XWIKI_ADMIN_USER, XWIKI_ADMIN_PASS
@@ -134,8 +128,7 @@ await login(page);   // reads XWIKI_BASE_URL, XWIKI_ADMIN_USER, XWIKI_ADMIN_PASS
 ```
 This reads the CSRF token live off the actually-rendered page, so it is always valid. `login()`
 accepts a base URL with or without the `/xwiki` suffix and throws if no login form appears, rather
-than continuing unauthenticated. Note that XWiki serves the login page with HTTP **401** by
-design, form included - do not treat that status as a failure in your own scripts.
+than continuing unauthenticated.
 
 ## Procedure
 
@@ -145,9 +138,8 @@ Export these once per session. The last three are read directly by `expand-and-s
 `setup-class-object.js`, and are worth setting even when the defaults are right, so every script
 and snippet agrees on one instance:
 ```bash
-# This skill's own directory. In Claude Code the plugin root is ${CLAUDE_PLUGIN_ROOT}; in Kimi
-# Code the equivalent is ${KIMI_SKILL_DIR} (already this directory); in opencode, $XWIKI_LLM_HOME
-# points at the checkout, so it is $XWIKI_LLM_HOME/xwiki/skills/xwiki-ui-before-after.
+# This skill's own directory. Kimi Code: ${KIMI_SKILL_DIR} is already it. opencode:
+# $XWIKI_LLM_HOME/xwiki/skills/xwiki-ui-before-after.
 export XWIKI_UI_SKILL="${CLAUDE_PLUGIN_ROOT}/skills/xwiki-ui-before-after"
 
 # Where test distributions are kept - outside any git checkout, so instance logs and swapped
@@ -271,15 +263,11 @@ Wait on the log rather than piping the script's stdout through a summarizer: a n
 ```
 
 **Always pass `--verify jarHint:pathInJar:pattern`** (repeatable) so a failed or wrong swap fails
-loudly instead of silently leaving a stale jar deployed. Reading the example above: `tree-webjar`
-is a substring of the swapped module's *artifactId*, `META-INF/.../*/finder.js` is the file inside
-the jar (a `*` glob covers version-numbered path segments such as `18.6.0-SNAPSHOT`), and
-`xwiki-icon` is a string that must appear in that file's content. Because the script matches the
-hint against each swapped module's artifactId rather than re-searching `WEB-INF/lib`, it cannot
-accidentally match an unrelated jar with a similar name - `tree-webjar` will not silently match
-`xwiki-platform-index-tree-webjar`'s neighbours. The spec is split on its first two colons only,
-so `pattern` may itself contain colons and spaces - `containerTagName: 'button'` is valid. Run
-`setup-instance.sh` with no arguments, or `--help`, for the full flag docs.
+loudly instead of silently leaving a stale jar deployed. In the example: `tree-webjar` matches the
+swapped module's *artifactId*, `META-INF/.../*/finder.js` is a file inside the jar (`*` covers
+version-numbered segments), and `xwiki-icon` must appear in its content. The spec splits on its
+first two colons only, so a pattern may contain colons and spaces. Run `setup-instance.sh` with no
+arguments, or `--help`, for the full flag docs.
 
 **Then assert the state from the capture script too.** `--verify` proves the right *bytes* were
 deployed; it cannot prove the page renders differently, and the file-copy paths
@@ -299,50 +287,35 @@ screenshot pair that *looks* different is weaker evidence than the measured prop
 looks identical is otherwise indistinguishable from a swap that silently did nothing.
 
 **Address the element by name, never by position.** A positional selector is the classic way to
-assert on the wrong node and get a value that is identical in both states - which step 4 tells you
-to read as a failed deploy, sending you to debug the deploy instead of the selector. In this very
-template, `#backtoedit .btn-group :last-child` looks reasonable and is wrong: `#editActionButton`
-emits a hidden `<input name="xaction">` after each submit button, so the group's four children are
-`action_save`, `xaction`, `action_saveandcontinue`, `xaction`, and `:last-child` is a hidden input
-whose class and radius never change. Dump the candidates before trusting a selector:
+assert on the wrong node and read a value that never changes, which looks exactly like a failed
+deploy - `#backtoedit .btn-group :last-child` is a hidden input, not the button
+(`references/gotchas.md`). Dump the candidates before trusting a selector:
 ```js
 console.log(await page.evaluate(() => [...document.querySelectorAll('#backtoedit .btn-group > *')]
   .map(e => `${e.tagName}[type=${e.type}][name=${e.name}]`)));
 ```
 
-**Also check the deploy itself on the file-copy paths.** The DOM assertion proves what *rendered*;
-it cannot tell a sync that wrote to the wrong path from a fix that does nothing, and
-`sync-static-resource.sh` prints `synced ...` unconditionally. One grep on the file inside the
-instance closes that gap, per state:
+**Also check the deploy itself on the file-copy paths**, where there is no `--verify`: the DOM
+assertion proves what rendered, not what was written, and `sync-static-resource.sh` prints
+`synced ...` unconditionally. One grep inside the instance, per state:
 ```bash
 grep -c btn-group-last "$INSTANCE"/webapps/xwiki/skins/flamingo/previewactions.vm   # 0 before, 1 after
 ```
 
-**The ref for the "before" state** is normally `<fix-commit>~1`, which builds via a throwaway git
-worktree and cleans it up. If the fix is **not committed yet**, `<fix-commit>~1` has nothing to
-resolve. Never solve that by committing the fix yourself - use `HEAD` (the actual current commit)
-as the "before" ref and build "after" straight from the dirty working tree, also `HEAD`, since
-these scripts read the working tree as-is when given `HEAD` rather than diffing against it. Or ask
-the user whether they would rather commit it themselves first.
+**The ref for the "before" state** is normally `<fix-commit>~1`, built via a throwaway worktree
+that is cleaned up afterwards. If the fix is not committed yet that ref does not resolve: use
+`HEAD` for both states, as the git-safety section above explains, or ask the user to commit first.
 
-**Gotcha - the jar you changed may not be the jar that ships.** When a `-legacy` module weaves
-the changed module with AspectJ, the woven jar is what sits in `webapps/xwiki/WEB-INF/lib/` and
-the original is not deployed standalone, so swapping only the module you edited changes nothing
-on screen. `xwiki-build` owns this rule and the way to find such a module
-(`grep -rl '<weaveDependency>' --include=pom.xml`); the consequence here is that the legacy module
-must be passed as an extra module so *its* jar is the one swapped. `xwiki-platform-oldcore` is
-the case you will hit most - always pass
+**Gotcha - the jar you changed may not be the jar that ships.** Where a `-legacy` module weaves
+the changed module with AspectJ, the woven jar is what sits in `WEB-INF/lib` and the original is
+not deployed at all, so swapping only the module you edited changes nothing on screen. Pass the
+legacy module as an extra module so *its* jar is swapped; `xwiki-build` owns the rule and how to
+find one. For `xwiki-platform-oldcore`, always pass
 `xwiki-platform-core/xwiki-platform-legacy/xwiki-platform-legacy-oldcore` alongside it. If a
-screenshot still does not reflect the change, confirm which jar actually ships the class:
+screenshot still does not reflect the change, confirm which jar ships the class:
 ```bash
 unzip -l webapps/xwiki/WEB-INF/lib/*.jar 2>/dev/null | grep -B20 YourChangedClass.class | grep Archive
 ```
-
-If you do need to background a deploy - because you have genuinely independent work to do at the
-same time, like preparing the other state's build - follow `<instance-dir>/setup-instance.log`
-with `tail -f` (via the Monitor tool) rather than piping the script's own stdout through
-anything. Piping through a non-`-f` `tail -80` or similar summarizer buffers *all* output until
-the whole script exits, defeating the point of watching it live.
 
 ### 3. Capture one state
 
@@ -384,17 +357,11 @@ changed:
 await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
 ```
 **Anchor towards the chrome, which is not always upwards.** `maxHeight` holds the element's bottom
-edge, which is right when the recognizable furniture sits above it - in Preview mode the action bar
-is below the previewed content, so a band anchored at the *top* of the content column drops the
-buttons entirely and yields two identical context shots. When the chrome sits above and beside the
-element instead - a suggestion row at the top of a panel, with the header bar and search field
-above it - bottom-anchoring cuts the wrong end off, and plain asymmetric padding is the better
-tool: `{leftPad: 260, rightPad: 8, topPad: 120, bottomPad: 190}`. Look at where the landmarks are
-before choosing.
-
-A shot of the immediate parent is not a context shot either - `#backtoedit` alone is 807x63, four
-buttons and no chrome, which is the "one scenario per zoom level" mistake step 5 forbids, just
-inside one panel.
+edge, which is right when the landmarks sit above it and wrong when they sit above *and beside* it
+- there, asymmetric padding such as `{leftPad: 260, rightPad: 8, topPad: 120, bottomPad: 190}` is
+the better tool. Both failure directions are worked through in `references/gotchas.md`. Look at
+where the landmarks are before choosing, and note that the element's immediate parent is usually
+not a context shot at all: `#backtoedit` alone is 807x63, four buttons and no chrome.
 
 **Both shots belong to the same scenario.** Pass the wider one as the optional `context` key
 alongside `image` in step 5's config, and the builder stacks it above the detail crop inside the
@@ -439,11 +406,9 @@ spurious differences, and proves nothing when it matches either:
 ```bash
 compare -metric AE before-detail.png after-detail.png null: 2>&1   # count of differing pixels
 ```
-Do not read absolute thresholds into that number - it scales with the crop size and with how much
-of it changed. A corner-radius fix on a small button crop measured 155; a restyled suggestion row
-measured 3097; the same file against itself is 0. If you need to tell a small real change from
-noise, capture the *same* state twice and measure that pair first: that is your noise floor, and
-anything at or below it is not a difference.
+There is no useful absolute threshold - the count scales with crop size and with how much changed
+(`references/gotchas.md` has measured examples). To tell a small real change from noise, capture
+the *same* state twice and measure that pair first: that is your noise floor.
 
 **A zero count is not automatically a bug.** Plenty of worthwhile fixes are semantic rather than
 visual - a `<button>` becoming an `<a href>` so it can be middle-clicked and reads correctly to a
@@ -469,42 +434,15 @@ See the script's docstring at the top of the file for the config shape: `ticket`
 `<code>` and `<em>` - and must have its own `&`, `<` and `>` escaped by hand - while a caption or
 title containing `<code>` renders as literal angle brackets. Keep captions plain prose.
 
-**If the user mentions a design, prototype or mockup** - a Figma or JIRA-attached image to
-compare the implementation against - do not wedge it into the 2-column before/after. Use
-`build-comparison-3col.py`, which adds a middle "Design prototype" column:
-```bash
-python3 "$XWIKI_UI_SKILL"/build-comparison-3col.py \
-  /path/to/scratchpad/comparison.html /path/to/scratchpad/config.json
-```
-Its config shape matches the 2-column builder's, except each scenario also has a `design` object
-(`image` plus `caption`, and optionally `context`). Crop the design image down to just the
-relevant element first (ImageMagick `-crop`), the same way you would a full-page screenshot - a
-design mockup usually includes surrounding chrome (nav, sidebar, unrelated sections) that is not
-the point of the comparison.
+The builder's docstring also lists the layout rules the template exists to enforce - heading
+format, the repro line's placement, no per-scenario paragraph, a one-line caption under every
+screenshot. They came from direct user feedback; do not drift from them. The one worth repeating
+here because it decides how you *capture*: one scenario per state or interaction, never one per
+zoom level - a detail crop and the wider shot that places it share a panel via `context`, per
+step 3.
 
-**Always highlight the design/prototype column in yellow/amber**, never the same color as before
-(red) or after (green): it is reference material, not a third implementation state, and a
-distinct hue keeps that legible at a glance. `build-comparison-3col.py` already defaults its
-`--design`/`--design-bg`/`--design-line` CSS variables to an amber palette - keep that
-convention across tickets.
-
-Three columns need more horizontal room than the 2-column layout to avoid the responsive
-single-column breakpoint, so pass a wider viewport to `export-to-png.js` in step 6.
-
-**Layout constraints - these came from direct user feedback, do not drift from them:**
-- The heading is the classic `TICKET-ID: Title` format only, with no separate description
-  paragraph under it.
-- The repro line (how to reproduce these screenshots) goes front and center, directly under the
-  heading, as plain text - no box, background or border around it. It is the first thing a reader
-  needs, so it does not get buried in a footer.
-- Each scenario section is just a short title followed by the before/after column pair, with no
-  explanatory paragraph per scenario. If more context is truly needed it belongs in the repro
-  line or the ticket description, not repeated per scenario.
-- Each before/after card keeps a short one-line caption under its screenshot, not just alt text.
-  This is deliberate, for assistive tech and quick scanning. Do not drop it even when trying to
-  keep things terse; terseness applies to the surrounding prose, not the captions.
-- One scenario per state or interaction, never one per zoom level. A detail crop and the wider
-  shot that places it are one comparison, so they share a panel via `context` - see step 3.
+**If the user supplies a design, prototype or mockup** to compare the implementation against, use
+the 3-column layout instead - see `references/design-comparison.md`.
 
 ### 6. Export the comparison to a single PNG (this is the deliverable, not an Artifact)
 
@@ -518,14 +456,6 @@ node "$XWIKI_UI_SKILL"/export-to-png.js \
 This uses the same cached Playwright/Chromium install as the capture steps. Output is a PNG, not
 a JPEG - no lossy compression - and its dimensions are the full rendered page at 2x device scale,
 so a ~1100px-wide page comes out ~2200px wide.
-
-For a 3-column (before/design/after) comparison, pass a wider viewport as the third argument. The
-default 1100px viewport is exactly the 2-column layout's responsive breakpoint, so a 3-column
-page rendered at that width collapses to one column per row instead of laying out side by side:
-```bash
-node "$XWIKI_UI_SKILL"/export-to-png.js \
-  /path/to/scratchpad/comparison.html /path/to/scratchpad/comparison.png 1560
-```
 
 Trim the trailing whitespace a `fullPage` capture tends to leave at the bottom - it is
 paper-colored background, safe to autodetect with a small fuzz factor:
@@ -587,9 +517,7 @@ wiki editor, click `input[name="action_preview"]`, log the assertion, then save 
 await screenshotElement(page, ['#backtoedit .btn-group'], detailPath, {pad: 2});
 await screenshotElement(page, ['#backtoedit'], ctxPath, {pad: 0, topPad: 260, maxHeight: 260});
 ```
-- the second being the `context` band, which comes out as the page title, the previewed content and
-the action bar beneath it. Total run time was a few minutes, nearly all of it writing that script -
-no Maven build was involved at any point.
+The whole run took minutes, nearly all of it writing that script - no Maven build at any point.
 
 ## Further reading
 
@@ -600,3 +528,5 @@ no Maven build was involved at any point.
   "should work".
 - `references/release-notes-comparison.md` - how to produce the separate, simplified comparison
   for end users, which is a different artifact from the dev-facing one built in steps 5 and 6.
+- `references/design-comparison.md` - the 3-column before / design prototype / after layout, for
+  when a mockup has to be compared against the implementation.

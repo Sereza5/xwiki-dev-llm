@@ -125,7 +125,7 @@ def lint(mod):
             if cap and re.search(r'\d+\.\d+', cap.group(1)):
                 problems.append(f'{name}: caption used for a version: {cap.group(1)!r}')
 
-        referenced = set(re.findall(r'reference="([^"]+)"', p['content']))
+        referenced = set(re.findall(r'reference="([^"]+)"', strip_verbatim(p['content'])))
         declared = set(p['attachments'])
         if referenced - declared:
             problems.append(f'{name}: referenced but not declared: {sorted(referenced - declared)}')

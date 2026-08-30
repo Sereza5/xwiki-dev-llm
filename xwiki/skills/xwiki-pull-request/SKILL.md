@@ -29,7 +29,12 @@ Fill `.github/pull_request_template.md` (at the repo root). Complete every secti
 - **Jira URL** — link the JIRA issue (omit only for `[Misc]` PRs).
 - **Changes → Description** — the main changes.
 - **Changes → Clarifications** — choices made, links to forum proposals / dependent issues.
-- **Screenshots & Video** — before/after for any UI change.
+- **Screenshots & Video** — whenever the change has a visible result, be it a new feature, an
+  improvement or a fix, show it: a reviewer should be able to judge the result without building the
+  branch. Add a "before" as well when the issue reports a regression. Put the same image on the JIRA
+  issue, where it serves whoever reads the issue or writes the release note later —
+  `okf/servers/jira.md` has the how, and its attachment URL is also what a PR body must reference,
+  `gh` being unable to upload an image.
 - **Executed Tests** — how the change was validated (the `mvn` commands run). Especially important
   for regression fixes.
 - **Expected merging strategy** — `Prefers squash: Yes`; list backport branches if any.

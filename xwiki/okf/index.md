@@ -70,7 +70,7 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
   writing each carefully), page-structure xobject fields with the exact semantics of
   Highlights / More / Related, style (incl. **never hard-wrapping prose** — one paragraph is one
   unbroken line, on xwiki.org pages and forum.xwiki.org posts alike; 120 chars is a Java-source rule),
-  attachment/image/video rules (kebab-case names, `{{image}}` +
+  attachment/image/video rules (kebab-case names — stop words stripped from these too, `{{image}}` +
   `alt`, **`size` mandatory and `width` forbidden in the `documentation` space**, which fixes the width a
   screenshot must be captured at, **`webm` videos displayed with `{{embed}}`, never linked**, Gallery,
   PlantUML `bluegray`), location, version perspective and the `{{version}}` macro (incl. **documenting a
@@ -85,7 +85,9 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
   e.x.o extension page without deleting it (**every** xproperty that holds prose, not just
   `description`) and wiring its "Documentation" button via the `ExtensionLD` URL, **deleting its
   leftover attachments** (the one place the never-delete-an-attachment rule is inverted), and
-  **triaging its backlinks** (which to repoint, which to leave). Applied by `xwiki-doc-convert`.
+  **triaging its backlinks** (which to repoint, which to leave). Also **when** a migration may
+  publish — the whole set at once, parents first, never page by page, because xwiki.org is public and
+  a half-built tree is what readers get. Applied by `xwiki-doc-convert`.
 - **page-deletion** — the rule that applies to **deleting any page on xwiki.org**, whatever the reason
   (migrated page, duplicate, obsolete extension/blog page, or an intermediate page you created
   yourself): **list and fix the backlinks before deleting**, since the breakage lands on *other* pages
@@ -165,12 +167,14 @@ Applied by `xwiki-fix-sonarqube-issue`, which owns the *procedure*.
 
 ### servers/
 - **index** — the xwiki.org server ecosystem (JIRA, CI, Nexus, SonarCloud, forum, …) and how to
-  access/verify each (MCP vs. WebFetch); plus writing via REST (only `/rest` honors Basic auth, the
-  `XWiki-Form-Token` CSRF header, and the `extensions` subwiki id) and the `~/.xwiki-credentials`
-  convention (never printed, only sourced).
+  access/verify each (MCP vs. WebFetch); plus reading/writing via REST (the **Cloudflare block on a
+  browser-like User-Agent**, only `/rest` honors Basic auth, the `XWiki-Form-Token` CSRF header, and
+  the `extensions` subwiki id) and the `~/.xwiki-credentials` convention (never printed, only
+  sourced).
 - **jira** — accessing jira.xwiki.org (jira-cli or REST), the durable issue-field conventions
   (Component, Affects Version = oldest affected/else last LTS, Fix Version); values are volatile;
-  resolving/closing (Fixed vs. Cannot Reproduce for already-covered issues, assign to yourself); and
+  resolving/closing (Fixed vs. Cannot Reproduce for already-covered issues, assign to yourself);
+  attachments (REST-only, and the attachment URL is how an image reaches a GitHub PR body); and
   wiki-markup gotchas (wrap literals in `{{…}}`, don't over-escape prose, never escape inside `{code}`).
 - **jenkins** — querying ci.xwiki.org through the Jenkins REST API (`/api/json?tree=…`, anonymous
   read) instead of scraping the UI: the multibranch URL shape, the endpoints for builds / failing

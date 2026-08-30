@@ -25,8 +25,10 @@ set -a; . ~/.xwiki-credentials; set +a
 
 ## The page set
 
-Write the pages as a `pages.py` in your working directory — drafting them as data is what makes
-`lint` possible before anything is saved, and makes a re-save idempotent afterwards:
+Write the pages as a `pages.py` in your working directory — a `<work>/<repo>/<date>-<slug>/`
+directory under the work directory the org-wide conventions define (`$XWIKI_LLM_WORK`, else
+`~/.xwiki-llm/work`), not inside the repo. Drafting them as data is what makes `lint` possible
+before anything is saved, and makes a re-save idempotent afterwards:
 
 ```python
 EXT = "xwiki:org.xwiki.contrib:application-antispam-ui"
@@ -72,6 +74,12 @@ Give the region as `x,y,w,h` rather than `VIEWPORT`: a step's screenshot shows t
 landmark that locates it, so a region is the normal case and a whole window the exception (a
 procedure's entry step). A region already at the target width is saved unresampled.
 
+**Never scroll to reach content below the fold — enlarge the viewport.** `agent-browser screenshot
+<element>` ignores the scroll offset: it captures the *document* region matching the element's
+**viewport** rect, so after scrolling it saves a plausible PNG of the wrong part of the page. Keep
+`scrollY = 0` and make the window tall enough instead (`agent-browser --session doc set viewport 1440
+3600 1`).
+
 ## What each step actually protects against
 
 **`lint`** — the traps that produce a *plausible-looking* page rather than an error: a scheme-like
@@ -113,7 +121,8 @@ into blur.
 
 - The **form token is session-bound**. `xwikidoc.py` keeps a cookie jar for that reason; without one,
   object writes fail intermittently with `403 Invalid or missing form token.`
-- xwiki.org REST rejects a request with no `User-Agent`.
+- xwiki.org REST is behind Cloudflare: it answers `403` both to a request with **no** `User-Agent`
+  and to one carrying a **browser-like** UA. The tools send `curl/8.0`; see `okf/servers/index.md`.
 - Only `/rest` honours Basic auth. A `/bin/` URL is fetched as **guest**, which is the right lens for
   the rendered-page checks in `verify` but means a Live Data table rendered there shows no rows.
 - A conversion also has to finish the **original** page — strip its prose, wire its "Documentation"

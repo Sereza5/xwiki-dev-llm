@@ -96,6 +96,15 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   (which ships with Claude Code), so it works on Windows, macOS and Linux without a bash or `jq`
   dependency. In opencode it is loaded via the `instructions` config entry (not remote-scoped — see
   the opencode install note above).
+- **A single work directory** — every file a task needs but the repo must not hold (plan and
+  handoff files, extracted source, drafts, notes, screenshots) goes under one root instead of being
+  scattered over the repo, the system temp directory and your home directory. The default is
+  `~/.xwiki-llm/work`, overridable with `XWIKI_LLM_WORK`; each piece of work gets its own
+  `<work>/<repo>/<YYYY-MM-DD>-<slug>/` directory, so it is findable later and removable in one
+  command. Nothing is created up front — a session that writes no work file leaves no trace — and
+  the `SessionStart` hook appends the resolved absolute path to the injected conventions so the
+  model does not have to guess it. Files that only matter until the end of the current session stay
+  in the host's own session scratch directory.
 - **Line-ending guard** (`xwiki/scripts/check-line-endings.mjs`) — a `PostToolUse` hook on
   `Write`/`Edit` that checks every file written against the explicit `eol` declared by the repo's
   `.gitattributes` (via `git check-attr`). On a CRLF/LF mismatch it fails with a clear message so
@@ -150,7 +159,7 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   - `xwiki-xar-pages` — edit extension wiki pages (XAR XML): the `xar:format` / `xar:verify` conventions.
   - `xwiki-translations` — externalize and render i18n strings safely.
   - `xwiki-doc-writing` — write, update or review a page of xwiki.org documentation per the XWiki Documentation Guide (Diataxis).
-  - `xwiki-doc-convert` — convert old documentation (the `Documentation` space or the Extensions wiki) into the new `/documentation` tree.
+  - `xwiki-doc-convert` — convert old documentation (the `Documentation` space or the Extensions wiki) into the new `/documentation` tree, as a resumable plan of one-session tasks (also used to resume a conversion already under way).
   - `xwiki-contrib-release-blog-post` — create the "<Extension> Extension <version> Released" announcement on the xwiki.org Blog for an xwiki-contrib extension.
   - `xwiki-fix-sonarqube-issue` — find and fix SonarCloud issues, open a PR, mark them Accepted; the
     per-rule fix correctness and drop conditions it applies live in `xwiki/okf/sonarqube/`.
@@ -162,6 +171,7 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
 | Variable                | Used by   | Notes                                              |
 |-------------------------|-----------|----------------------------------------------------|
 | `XWIKI_LLM_HOME`        | opencode  | Absolute path to your `xwiki-dev-llm` checkout. **opencode only** (Claude Code and Kimi Code resolve paths themselves). |
+| `XWIKI_LLM_WORK`        | all hosts | Absolute path to the work directory for plans, handoffs, drafts and other cross-session state. Optional — defaults to `~/.xwiki-llm/work`. |
 | `SONARQUBE_TOKEN`       | sonarqube | Your personal SonarCloud token (same for all repos). |
 | `SONARQUBE_PROJECT_KEY` | sonarqube | The SonarCloud project key — **differs per repo**. Optional: leave it unset in repos that have no SonarCloud project. |
 | `JIRA_API_TOKEN`        | `xwiki-jira` (jira-cli / REST) | Your jira.xwiki.org personal access token. Optional — only needed to act on JIRA issues. See "JIRA access" below. |

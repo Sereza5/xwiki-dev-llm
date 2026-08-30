@@ -2,10 +2,9 @@
 
 Companion to `../SKILL.md`. Each of these cost real time to discover once.
 
-Keep captures cheap while you are at it: a screenshot costs vision tokens in proportion to its
-resolution, so crop before you Read rather than saving a `fullPage` shot and reading it to see what
-rendered, and do not re-Read a file no step has changed. Where a `console.log` of the class name,
-selector or status answers the question, it is both cheaper and better evidence than a picture.
+Keep captures cheap: crop before you Read rather than saving a `fullPage` shot to see what
+rendered. Where a `console.log` of the class name or computed style answers the question, it is
+both cheaper and better evidence than a picture.
 
 ## Fixtures
 

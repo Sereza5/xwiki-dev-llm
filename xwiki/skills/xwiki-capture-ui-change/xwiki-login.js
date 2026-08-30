@@ -9,10 +9,10 @@
 // setup-xar-instance.sh - this helper is specifically for browser-driven write actions.
 //
 // Usage:
-//   const { login } = require(process.env.XWIKI_UI_SKILL + '/xwiki-login');
+//   const { login } = require(process.env.XWIKI_CAPTURE_SKILL + '/xwiki-login');
 //   await login(page);                                  // uses XWIKI_BASE_URL and the admin vars
 //   await login(page, 'http://localhost:8080');          // or pass a base URL explicitly
-// where XWIKI_UI_SKILL points at this skill's directory (SKILL.md, step 0, exports it).
+// where XWIKI_CAPTURE_SKILL points at this skill's directory (SKILL.md, step 0, exports it).
 //
 // baseUrl is accepted either as the host root (http://localhost:8080) or with the webapp path
 // already on it (http://localhost:8080/xwiki): XWIKI_BASE_URL carries the /xwiki suffix because

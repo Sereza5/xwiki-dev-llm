@@ -30,11 +30,20 @@
 #                    uicomponents/viewers/comments.css, or flamingo/previewactions.vm with
 #                    --target-root skins
 set -euo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+if [[ "${1:-}" == -h || "${1:-}" == --help || $# -eq 0 ]]; then usage 0; fi
 
 TARGET_ROOT="resources"
 if [[ "${1:-}" == --target-root ]]; then
+  [ $# -ge 2 ] || { echo "ERROR: --target-root needs a value" >&2; echo >&2; usage 1 >&2; }
   TARGET_ROOT="$2"
   shift 2
+fi
+
+if [ $# -lt 3 ]; then
+  echo "ERROR: expected <instance-dir> <source-file> <relative-path>" >&2
+  echo >&2
+  usage 1 >&2
 fi
 
 INSTANCE_DIR="$1"

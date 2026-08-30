@@ -15,10 +15,9 @@
 // icon index, since there are two nested toggle-collapsable elements and indices aren't stable).
 // Give the AJAX ~2s after that click before screenshotting or querying for the field.
 const { chromium } = require('playwright');
+const { login } = require(__dirname + '/xwiki-login');
 
 const BASE = process.env.XWIKI_BASE_URL || 'http://localhost:8080/xwiki';
-const ADMIN_USER = process.env.XWIKI_ADMIN_USER || 'Admin';
-const ADMIN_PASS = process.env.XWIKI_ADMIN_PASS || 'admin';
 
 const [space, propname, proptype] = process.argv.slice(2);
 if (!space || !propname || !proptype) {
@@ -30,10 +29,7 @@ if (!space || !propname || !proptype) {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
 
-  await page.goto(`${BASE}/bin/login/XWiki/XWikiLogin`);
-  await page.fill('#j_username', ADMIN_USER);
-  await page.fill('#j_password', ADMIN_PASS);
-  await Promise.all([page.waitForNavigation(), page.click('input[type="submit"]')]);
+  await login(page);
 
   // CSRF token, grabbed from any already-rendered page's meta tag.
   await page.goto(`${BASE}/bin/view/Main/WebHome`);
@@ -46,7 +42,8 @@ if (!space || !propname || !proptype) {
   // Gotcha: the query param is "proptype", NOT "type" - using the wrong name fails silently
   // (200 response, redirects to the class editor, but no property is actually added).
   const r1 = await page.goto(
-    `${BASE}/bin/propadd/${space}/WebHome?propname=${propname}&proptype=${encodeURIComponent(proptype)}&form_token=${token}`
+    `${BASE}/bin/propadd/${space}/WebHome?propname=${propname}` +
+      `&proptype=${encodeURIComponent(proptype)}&form_token=${token}`
   );
   console.log('propadd status:', r1.status(), '->', page.url());
 
@@ -55,7 +52,7 @@ if (!space || !propname || !proptype) {
 
   await browser.close();
 
-  console.log(`Done. Verify: curl -s -u ${ADMIN_USER}:${ADMIN_PASS} "${BASE}/rest/wikis/xwiki/classes/${space}.WebHome"`);
+  console.log(`Done. Verify: curl -s -u Admin:admin "${BASE}/rest/wikis/xwiki/classes/${space}.WebHome"`);
   console.log(`Edit at: ${BASE}/bin/edit/${space}/WebHome?editor=object`);
 })().catch((e) => {
   console.error(e);

@@ -6,8 +6,8 @@
 // is actually present, computed via its own getBoundingClientRect() plus a little padding.
 //
 // Usage from a per-ticket script:
-//   const { screenshotElement } = require(process.env.XWIKI_UI_SKILL + '/element-screenshot');
-// where XWIKI_UI_SKILL points at this skill's directory (SKILL.md, step 0, exports it).
+//   const { screenshotElement } = require(process.env.XWIKI_CAPTURE_SKILL + '/element-screenshot');
+// where XWIKI_CAPTURE_SKILL points at this skill's directory (SKILL.md, step 0, exports it).
 //   await screenshotElement(page, ['.new-wrapper', '.old-bare-element'], outPath);
 //
 // If you see a sliver of an adjacent element in the output, that's crop overshoot, not a bug

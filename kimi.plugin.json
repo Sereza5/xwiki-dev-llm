@@ -14,7 +14,7 @@
       "args": ["./xwiki/scripts/start-discourse-mcp.mjs"]
     },
     "develocity": {
-      "url": "https://ge.xwiki.org/mcp",
+      "url": "https://community.develocity.cloud/mcp",
       "bearerTokenEnvVar": "DEVELOCITY_MCP_ACCESS_KEY"
     },
     "sonarqube": {

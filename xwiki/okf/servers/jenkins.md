@@ -98,9 +98,10 @@ match. See [[versioning]] for why the version itself must always be read, never 
 
 ## Related
 
-- Build **scans** (timings, cache hits, failure details from Develocity) live on ge.xwiki.org and
-  are queryable through the `develocity` MCP — richer than the Jenkins REST API for *why* a build
-  failed, where Jenkins is the authority on *whether* it did. See [[index]] for the server map.
+- Build **scans** (timings, cache hits, failure details from Develocity) live on
+  community.develocity.cloud and are queryable through the `develocity` MCP — richer than the
+  Jenkins REST API for *why* a build failed, where Jenkins is the authority on *whether* it did.
+  See [[index]] for the server map.
 - Quality-gate failures are a Sonar concern, not a Jenkins one: use the `sonarqube` MCP and the
   `xwiki-fix-sonarqube-issue` skill.
 - A test that fails intermittently rather than deterministically is a flicker: use the

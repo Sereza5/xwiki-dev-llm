@@ -12,7 +12,7 @@
     },
     "develocity": {
       "type": "http",
-      "url": "https://ge.xwiki.org/mcp",
+      "url": "https://community.develocity.cloud/mcp",
       "headers": {
         "Authorization": "Bearer ${DEVELOCITY_MCP_ACCESS_KEY}"
       }

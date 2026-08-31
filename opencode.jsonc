@@ -28,7 +28,7 @@
       // opencode has no "read the bearer token from an env var" field (Kimi's bearerTokenEnvVar),
       // so the header is interpolated: with DEVELOCITY_MCP_ACCESS_KEY unset the server loads and every
       // request fails 401, rather than being skipped.
-      "url": "https://ge.xwiki.org/mcp",
+      "url": "https://community.develocity.cloud/mcp",
       "headers": {
         "Authorization": "Bearer {env:DEVELOCITY_MCP_ACCESS_KEY}"
       }

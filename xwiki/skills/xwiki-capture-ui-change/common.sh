@@ -101,6 +101,12 @@ build_at_ref() {
   done
 }
 
+# An `if` rather than a `[ -d ... ] && git ...` one-liner: the HEAD path never creates a worktree,
+# so that form would make this function's exit status 1 whenever there is nothing to remove, and
+# the callers all run under `set -e`, which turns that into an abort part-way through the
+# procedure. An `if` whose condition is false succeeds, so the caller carries on either way.
 remove_worktree() {
-  [ -d "$WORKTREE_DIR" ] && git -C "$REPO_ROOT" worktree remove "$WORKTREE_DIR" --force
+  if [ -d "$WORKTREE_DIR" ]; then
+    git -C "$REPO_ROOT" worktree remove "$WORKTREE_DIR" --force
+  fi
 }

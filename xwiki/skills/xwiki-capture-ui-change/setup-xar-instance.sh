@@ -143,8 +143,11 @@ resolve_repo "$MODULE_DIR"
 build_at_ref package "$GIT_REF" "$MODULE_DIR" "$@"
 
 for m in "${BUILT_MODULES[@]}"; do
-  XAR="$(artifact_path "$m" xar)"
-  XAR="$m/target/$(basename "$XAR")"
+  # The XAR is read from the module's own target/, not the local repository, so only the file name
+  # is needed and neither the groupId nor the repository root has to be resolved.
+  ARTIFACT_ID="$(evaluate "$m" project.artifactId)"
+  VERSION="$(evaluate "$m" project.version)"
+  XAR="$m/target/$ARTIFACT_ID-$VERSION.xar"
   if [ ! -f "$XAR" ]; then
     echo "ERROR: no XAR at $XAR - check <packaging>xar</packaging> is set for this module" >&2
     exit 1

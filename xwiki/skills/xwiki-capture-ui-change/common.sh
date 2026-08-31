@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Shared helpers for setup-instance.sh and setup-xar-instance.sh: usage output, the Maven
-# invocation, resolving a module's coordinates, and building it at an arbitrary git ref through a
-# throwaway sparse worktree. Sourced, never run directly.
+# Shared helpers for setup-instance.sh, setup-xar-instance.sh and sync-static-resource.sh: usage
+# output, the Maven invocation, resolving a module's coordinates, and building it at an arbitrary
+# git ref through a throwaway sparse worktree. sync-static-resource.sh needs no Maven and uses only
+# usage(). Sourced, never run directly.
 
 # Print the sourcing script's own header comment as its usage text, so `--help` and a missing
 # argument both explain the interface instead of dying on an unbound variable. awk, not sed: the
@@ -37,17 +38,25 @@ evaluate() {
     || (cd "$1" && "$MVN" "${MVN_FLAGS[@]}" -q help:evaluate -Dexpression="$2" -DforceStdout)
 }
 
-# Absolute path of a built artifact in the local Maven repository. Everything is asked of Maven
-# rather than assumed: groupId, because this skill runs in xwiki-commons and xwiki-rendering and
-# xwiki-contrib too, not only org.xwiki.platform; and the repository root, because ~/.m2/repository
-# is only the default and settings.xml may point elsewhere.
+# The repository root, resolved once per run into LOCAL_REPO. It is a machine-wide setting, so
+# asking Maven for it per module pays for a JVM start to get the same answer back every time. It is
+# still asked rather than assumed, because ~/.m2/repository is only the default and settings.xml may
+# point elsewhere. Call this from a script body, never inside a command substitution, whose subshell
+# would discard the cached value.
+LOCAL_REPO=""
+resolve_local_repo() {
+  [ -n "$LOCAL_REPO" ] || LOCAL_REPO="$(evaluate "$1" settings.localRepository)"
+}
+
+# artifact_path <module-dir> <packaging> <artifact-id> <version>
+# Absolute path of a built artifact in the local Maven repository. artifactId and version are passed
+# in because every caller has already asked Maven for both. groupId is still resolved here, since
+# this skill runs in xwiki-commons and xwiki-rendering and xwiki-contrib too, not only
+# org.xwiki.platform. Requires resolve_local_repo to have run.
 artifact_path() {
-  local dir="$1" packaging="$2" group_id artifact_id version repo
+  local dir="$1" packaging="$2" artifact_id="$3" version="$4" group_id
   group_id="$(evaluate "$dir" project.groupId)"
-  artifact_id="$(evaluate "$dir" project.artifactId)"
-  version="$(evaluate "$dir" project.version)"
-  repo="$(evaluate "$dir" settings.localRepository)"
-  echo "$repo/${group_id//.//}/$artifact_id/$version/$artifact_id-$version.$packaging"
+  echo "$LOCAL_REPO/${group_id//.//}/$artifact_id/$version/$artifact_id-$version.$packaging"
 }
 
 # REPO_ROOT / WORKTREE_DIR for a module directory.

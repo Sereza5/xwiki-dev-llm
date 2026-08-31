@@ -92,10 +92,11 @@ verify_against() {
 }
 
 VERIFIED=0
+resolve_local_repo "$MODULE_DIR"
 for m in "${BUILT_MODULES[@]}"; do
   ARTIFACT_ID="$(evaluate "$m" project.artifactId)"
   VERSION="$(evaluate "$m" project.version)"
-  JAR="$(artifact_path "$m" jar)"
+  JAR="$(artifact_path "$m" jar "$ARTIFACT_ID" "$VERSION")"
   TARGET="$INSTANCE_DIR/webapps/xwiki/WEB-INF/lib/$ARTIFACT_ID-$VERSION.jar"
   if [ -f "$TARGET" ]; then
     cp "$JAR" "$TARGET"

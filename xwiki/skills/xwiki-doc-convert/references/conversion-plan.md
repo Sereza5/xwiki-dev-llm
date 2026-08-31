@@ -19,7 +19,7 @@ and none of it belongs in a commit.
   pages.py                      the page set (grows as target-page tasks are done)
   shots/                        screenshots
   conversion/
-    PLAN.md                     scope, setup answers, target map, status table   <- the only file every session reads
+    PLAN.md                     scope, setup answers, target map, status table   <- read it through `docplan.py status`
     tasks/
       01-extract-antispam.md    one file per task, self-contained
       02-target-map.md
@@ -196,18 +196,28 @@ keeps the visible state of the wiki either "not converted yet" or "converted", n
 
 Every invocation of this skill, in a fresh session, does this **before anything else**:
 
-1. Look for `conversion/PLAN.md` in the working directory — the conversion's task directory under
-   the work directory (`$XWIKI_LLM_WORK`, else `~/.xwiki-llm/work`); ask the developer only when
-   several conversions are in flight there.
+1. **`python3 docplan.py status`**, from the working directory. It locates `conversion/PLAN.md`
+   (searching upwards, so it also works from inside `conversion/`) and prints the whole orientation
+   in one call: the current task — the first whose status is not `done` — with its **full brief**,
+   plus the Setup answers, the recent Decisions, the Open questions, and the two tasks after this
+   one. Ask the developer only when it finds no plan and several conversions are in flight.
+
+   **Read `PLAN.md` by hand only when the digest says something is missing from it.** The plan grows
+   past 70 KB, so reading it in `sed` chunks costs a dozen turns at full context *per session*, and
+   a conversion has dozens of sessions. `docplan.py` exists because that was measurably the largest
+   single cost in this workflow.
 2. **No plan** → this is the planning session. Run the survey and write PLAN.md and the first tasks.
    Do not start converting anything; stop after the plan and show the developer the task list.
-3. **A plan exists** → read PLAN.md, take the first task whose status is not `done`, read **only that
-   task's file**, and execute it. Do not read the other task files, the raw legacy source, or the
-   pages of other tasks; that is exactly the context the split exists to avoid spending.
-4. Set the task's status to `doing` in PLAN.md before starting, so an interrupted session is visible.
-5. When it is finished: fill the task's **Outcome**, set its status to `done` in both places, record
-   any new decision in PLAN.md's Decisions, and **stop**. Report what landed and what the next task
-   is. Do not roll into the next task — a fresh context is the point.
+3. **A plan exists** → `python3 docplan.py start <NN>`, so an interrupted session is visible, then
+   execute the task from the brief the digest already printed. Do not read the other task files, the
+   raw legacy source, or the pages of other tasks; that is exactly the context the split exists to
+   avoid spending.
+4. When it is finished: `python3 docplan.py done <NN> "<outcome>"`. It sets the status to `done` and
+   writes the outcome into **both** PLAN.md's row and the task file's `## Outcome`, which is the pair
+   that otherwise drifts. Record any new decision in PLAN.md's Decisions yourself — that is prose,
+   not bookkeeping.
+5. **Stop.** Report what landed and what the next task is (`done` prints it). Do not roll into the
+   next task — a fresh context is the point.
 
 ## Checkpoint rules
 
@@ -218,7 +228,12 @@ Every invocation of this skill, in a fresh session, does this **before anything 
 - **A task that turns out too big is a planning bug, not something to push through.** Split it into
   two tasks in PLAN.md, do the first, and leave the second for the next session.
 - **Blocked** means it needs the developer (a question, a missing credential, a Change Request
-  conflict). Set the status to `blocked`, write the question in PLAN.md's Open questions, and move
-  on to the next unblocked task only if it does not depend on the blocked one.
+  conflict). `python3 docplan.py block <NN>`, write the question in PLAN.md's Open questions, and
+  move on to the next unblocked task only if it does not depend on the blocked one.
 - PLAN.md is the single source of truth for status. If a task file and PLAN.md disagree, PLAN.md is
-  right and the task file is stale — fix it.
+  right and the task file is stale — `docplan.py status` reports the drift, and `start` / `done`
+  write both at once so it stops happening.
+- **Keep Decisions and Open questions to entries that still bind a future session.** `docplan.py
+  status` shows the most recent of them and says how many it dropped, so a decision buried under
+  fifty later ones is one a session will not see. A decision already baked into a published page has
+  done its job; the ones worth carrying are the ones a later task would otherwise re-litigate.

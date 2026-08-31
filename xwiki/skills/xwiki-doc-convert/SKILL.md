@@ -38,23 +38,41 @@ cold.
 
 **Do this before anything else, on every invocation:**
 
-1. Find `conversion/PLAN.md` in the conversion working directory (the one holding `pages.py` and
-   `shots/`) — a `<work>/<repo>/<date>-<slug>/` directory under the work directory given in the
-   org-wide conventions. Look there first; only ask the developer if several conversions are in
-   flight and the target is ambiguous.
+1. From the conversion working directory (the one holding `pages.py` and `shots/` — a
+   `<work>/<repo>/<date>-<slug>/` directory under the work directory given in the org-wide
+   conventions), run **`python3 docplan.py status`**. That one call *is* the orientation: it finds
+   `conversion/PLAN.md`, and prints the current task's full brief, the setup answers, the recent
+   decisions, the open questions and what comes next. **Do not read `PLAN.md` by hand** — in chunks
+   it costs a dozen turns at full context, which is the single largest avoidable cost in a
+   conversion. Ask the developer only if the tool finds no plan and several conversions are in
+   flight.
 2. **No plan yet** → this session is the **planning session**. Do steps 0–1 of the flow below and
    *enumerate* (do not yet read) the legacy pages in scope, then write
    `conversion/PLAN.md` and the first task files — one `extract-*` per legacy page, then
    `target-map` (layout, standard task set and templates:
    [references/conversion-plan.md](references/conversion-plan.md)), show the developer the task list,
    and **stop**. Converting nothing is the correct outcome of a planning session.
-3. **A plan exists** → read PLAN.md, take the first task that is not `done`, read **only that task's
-   file**, execute it, write its Outcome, mark it `done` in PLAN.md, and **stop** — report what
-   landed and what comes next. Do not read the other task files or the raw legacy source; not
-   spending that context is the entire point of the split. Do not roll into the next task.
+3. **A plan exists** → `docplan.py status` already gave you the task and its brief. Run `docplan.py
+   start <NN>`, execute it, then `docplan.py done <NN> "<outcome>"` (which writes the status and the
+   Outcome to both PLAN.md and the task file), and **stop** — report what landed and what comes
+   next. Do not read the other task files or the raw legacy source; not spending that context is the
+   entire point of the split. Do not roll into the next task.
 4. **Checkpoint before you run out of room**, not after: at roughly a quarter of the context window
    left, stop mid-task, record in the task file exactly where to resume, and hand back. A task that
    is too big for one session is a planning bug — split it in PLAN.md rather than pushing through.
+
+**How a session runs out of room.** Every turn re-reads the whole conversation, so a session costs
+roughly *turns × context* and each of these is paid for by every turn that follows it. Three habits
+decide whether a task fits in one session:
+
+- **One call, not a conversation, for anything mechanical.** `docplan.py status` instead of reading
+  the plan in chunks; one script that answers five questions instead of five `cat`/`grep`/`sed`
+  commands. Exploration is where the turns go, not the writing.
+- **Never open a screenshot to check whether the capture worked** — `docshot.sh` reports its own
+  dimensions and box verdict, and a PNG read into the conversation stays there for every later turn.
+  Open one only to judge *content* ("is the right menu open?"), once, not once per attempt.
+- **Read the inventory, never the raw legacy source.** That is what the `extract-*` tasks produced
+  it for; re-reading the legacy page spends the context the split was meant to save.
 
 **Nothing reaches xwiki.org until the whole set is ready.** xwiki.org is public: for the weeks a
 conversion is in flight, every reader who lands on it sees whatever is currently there. A page

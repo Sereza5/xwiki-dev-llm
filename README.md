@@ -120,6 +120,10 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   - `discourse` — forum.xwiki.org. Search/read topics and posts with no credentials. Set
     `DISCOURSE_API_KEY` + `DISCOURSE_API_USERNAME` (or the user-key pair) and the same server also
     gets write tools, so Claude can post and reply on the forum — see "Forum write access" below.
+  - `develocity` — ge.xwiki.org, XWiki's Develocity instance: build scans, failure details, test
+    outcomes, build-cache effectiveness. It is a remote server (streamable HTTP), so nothing runs
+    locally; the Develocity access key is read from `DEVELOCITY_MCP_ACCESS_KEY`. Optional: with the
+    variable unset, Claude Code and Kimi Code simply skip the server.
   - `sonarqube` — SonarCloud code-quality analysis (Docker). Reads `SONARQUBE_TOKEN` and the
     repo-specific `SONARQUBE_PROJECT_KEY` from the environment; no secrets are committed.
     `SONARQUBE_PROJECT_KEY` is optional (it defaults to empty), so repos that have no SonarCloud
@@ -162,7 +166,7 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   - `xwiki-doc-writing` — write, update or review a page of xwiki.org documentation per the XWiki Documentation Guide (Diataxis).
   - `xwiki-doc-convert` — convert old documentation (the `Documentation` space or the Extensions wiki) into the new `/documentation` tree, as a resumable plan of one-session tasks (also used to resume a conversion already under way).
   - `xwiki-contrib-release-blog-post` — create the "<Extension> Extension <version> Released" announcement on the xwiki.org Blog for an xwiki-contrib extension.
-  - `xwiki-fix-sonarqube-issue` — find and fix SonarCloud issues, open a PR, mark them Accepted; the
+  - `xwiki-fix-sonarqube-issue` — find and fix SonarCloud issues and open a PR; the
     per-rule fix correctness and drop conditions it applies live in `xwiki/okf/sonarqube/`.
   - `xwiki-backport` — backport any change to an older branch: cherry-pick `-x`, adapt to the branch (module pom versions, Java level, style/API), verify, open the PR.
   - `xwiki-backport-testneeded` — backport `testneeded`-labelled tests to supported stable branches, adjust `@since` across branches, open the PRs (builds on `xwiki-backport`).
@@ -175,6 +179,7 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
 | `XWIKI_LLM_WORK`        | all hosts | Absolute path to the work directory for plans, handoffs, drafts and other cross-session state. Optional — defaults to `~/.xwiki-llm/work`. |
 | `SONARQUBE_TOKEN`       | sonarqube | Your personal SonarCloud token (same for all repos). |
 | `SONARQUBE_PROJECT_KEY` | sonarqube | The SonarCloud project key — **differs per repo**. Optional: leave it unset in repos that have no SonarCloud project. |
+| `DEVELOCITY_MCP_ACCESS_KEY` | develocity | Your ge.xwiki.org Develocity access key, **bare** (no `ge.xwiki.org=` prefix). Optional — without it the build-scan MCP is not loaded. See "Develocity access" below. |
 | `JIRA_API_TOKEN`        | `xwiki-jira` (jira-cli / REST) | Your jira.xwiki.org personal access token. Optional — only needed to act on JIRA issues. See "JIRA access" below. |
 | `JIRA_AUTH_TYPE`        | jira-cli  | Set to `bearer` (PAT auth) for the self-hosted XWiki JIRA.       |
 | `DISCOURSE_API_KEY`     | discourse | A forum.xwiki.org **admin** API key. Optional — without it the forum MCP is read-only. See "Forum write access" below. |
@@ -242,6 +247,40 @@ confirm the exact text with you before posting.
 If the forum refuses the credential (revoked, expired, wrong username), the launcher says so on
 stderr and starts the server read-only, rather than letting it fail to start and take the search and
 read tools down with it.
+
+## Develocity access (for the `develocity` MCP server)
+
+[ge.xwiki.org](https://ge.xwiki.org) is XWiki's Develocity instance: it stores the build scans of
+every CI build and provides the remote build cache. Its MCP server exposes that data — exception
+details and stack traces for a failed build, test outcomes and flaky-test history, build timings and
+cache hit rates, and diffs between two builds — so you can investigate a CI failure without leaving
+the terminal.
+
+This is **optional**, and unlike the other servers it needs a credential just to list its tools: the
+access key is validated on *every* request. So leave `DEVELOCITY_MCP_ACCESS_KEY` unset if you don't have a
+key — Claude Code and Kimi Code then skip the server instead of erroring on each session.
+
+To set it up, sign in to https://ge.xwiki.org, open **My settings → Access keys**, generate a key,
+and export it:
+
+```bash
+export DEVELOCITY_MCP_ACCESS_KEY="<the-access-key>"
+```
+
+**Why not `DEVELOCITY_ACCESS_KEY`?** There is only one kind of Develocity credential — the access
+key you just created — but that name is already taken by the Maven and Gradle Develocity
+extensions, which require the value to be host-scoped: `DEVELOCITY_ACCESS_KEY=ge.xwiki.org=<key>`
+(the host prefix exists so the key can't be sent to a server it wasn't issued for). An HTTP
+`Authorization: Bearer` header needs the bare key instead, so one variable cannot serve both. The
+separate name lets you keep both, with the same key in each:
+
+```bash
+export DEVELOCITY_ACCESS_KEY="ge.xwiki.org=<the-access-key>"  # Maven/Gradle build
+export DEVELOCITY_MCP_ACCESS_KEY="<the-access-key>"           # this plugin's MCP server
+```
+
+The key's Develocity user needs the *Access build data via the API and MCP* permission (included in
+the default Developer role).
 
 ## JIRA access (for the `xwiki-jira` skill)
 

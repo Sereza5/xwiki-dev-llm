@@ -1,6 +1,6 @@
 # Tools for authoring xwiki.org documentation
 
-Four scripts for the mechanical half of writing or converting a documentation tree: draft the pages
+Five scripts for the mechanical half of writing or converting a documentation tree: draft the pages
 as data, check them offline, publish them, prove what landed. The rules they enforce are the subset
 of `okf/conventions/documentation.md` a regex can decide — they replace the tedium, not the review
 checklist in `SKILL.md`.
@@ -12,8 +12,24 @@ was added the first time it produced a defect on a live page.
 |---|---|
 | `xwikidoc.py` | REST client for the farm. Imported by the others; usable on its own. |
 | `docpages.py` | `lint` \| `save` \| `pin` \| `verify` over a page set held as a Python module. |
-| `docshot.sh` | Capture a screenshot at a `size` width with the mandatory red box. |
+| `docshot.sh` | Capture a screenshot at a `size` width with the mandatory red box, and check it. |
 | `checkredbox.py` | Prove each screenshot's red box is a closed rectangle. |
+| `docplan.py` | `status` \| `next` \| `start` \| `done` over a conversion's `PLAN.md`. Conversions only. |
+
+**A second reason these exist: a mechanical question answered by a tool costs one turn, and answered
+by looking costs several.** A documentation task runs long — dozens of pages, hundreds of turns — and
+every turn re-reads the whole conversation, so the session's cost is roughly *turns × context*. That
+is why `docshot.sh` checks its own box rather than leaving you to open the PNG, why `docplan.py
+status` is one call instead of a dozen reads of `PLAN.md`, and why `lint` is a batch over the whole
+set. Two habits matter as much as the scripts:
+
+- **Never open a screenshot to judge whether it worked** — `docshot.sh` already reported the
+  dimensions and the box verdict. An image read into the conversation stays there for every
+  subsequent turn, and a shoot-look-adjust loop is the single most expensive pattern in this work.
+  Open one only when the question is genuinely about *content* ("is the right menu open?"), and then
+  once, not per attempt.
+- **Batch the shell.** One script that answers five questions costs one turn; five commands cost
+  five, each at full context.
 
 Requirements: Python 3 (standard library only), `agent-browser` and macOS `sips` for the screenshot
 pair, and `~/.xwiki-credentials` (see `okf/servers/index.md`). Source the credentials **inside** the
@@ -49,13 +65,21 @@ PIN = {f"{ROOT}.WebHome": ["configure-keywords", "delete-spam-pages-users"]}   #
 
 `highlights` defaults to `""` — it stays empty unless a page has enough children to need it.
 
-## The four steps
+## The steps
 
 ```bash
 python3 docpages.py lint          # offline. Iterate until it prints 0 problems.
 python3 docpages.py save          # idempotent: only what differs is written
 python3 docpages.py pin           # child order, verified through the tree service
 python3 docpages.py verify        # independent read-back audit + both checker surfaces
+```
+
+A conversion adds a fifth step around them — the plan that carries it across sessions:
+
+```bash
+python3 docplan.py status         # FIRST call of a conversion session: the whole orientation
+python3 docplan.py start 07       # before working on task 07
+python3 docplan.py done 07 "source/latex.txt + inventory, 41 items"
 ```
 
 `save` takes page references to limit it to those pages. Add `--pages <module>` before the command to
@@ -67,7 +91,7 @@ Screenshots, per capture:
 agent-browser --session doc set viewport 1440 900 1                # dPR 1, once per shape
 ./docshot.sh panel-entry 650 0,0,650,300 '.panel li.selected'      # x,y,w,h — 650 = size "large"
 ./docshot.sh account-list 960 239,60,960,360 'union:#list li a'    # one box around them all
-python3 checkredbox.py                                             # all of them, in one pass
+python3 checkredbox.py                                             # a final sweep; each shot self-checked
 ```
 
 Give the region as `x,y,w,h` rather than `VIEWPORT`: a step's screenshot shows the element plus the
@@ -108,6 +132,16 @@ against the source, then **both** checker surfaces: the `DocumentationViolationC
 the rendered HTML — some findings, the mandatory-`size` rule among them, create no object and appear
 only as an inline error box, so an object-only check calls a broken page clean.
 
+**`docplan.py`** — a conversion runs one task per session, so every session opens by re-deriving
+where it is. Done by hand that is `PLAN.md` read in five or six `sed` chunks plus the task file,
+then two more reads to update a status cell — a dozen turns before any documentation is written,
+repeated for every task in the plan. `status` prints the current task's full brief, the setup
+answers, the recent decisions and what comes next, in one call; `start` / `done` write the status
+back to `PLAN.md` **and** the task file, which is also the pair that otherwise drifts apart.
+`Decisions` and `Open questions` are trimmed to their most recent entries — a conversion accumulates
+tens of thousands of characters of them, and the recent ones are the ones a session would otherwise
+re-litigate.
+
 **`docshot.sh` / `checkredbox.py`** — the red box is drawn as an overlay appended to `<body>`, never
 as a CSS `outline`, which any ancestor with `overflow: hidden` clips into a three-sided box; the
 script refuses to shoot when a box falls outside what is being captured, and `checkredbox.py` then
@@ -115,7 +149,9 @@ proves the saved PNG holds a closed rectangle. The region is captured by screens
 clip element because the two obvious routes silently do something else: the CLI has no `--clip`, and
 macOS `sips -c` crops from the **centre** (`--cropOffset` is a no-op), which yields a plausible PNG of
 the wrong part of the page. A region narrower than the target width is refused rather than upscaled
-into blur.
+into blur. `docshot.sh` runs `checkredbox.py` on the shot it just took whenever a box selector was
+given, so a capture reports its own verdict and a failed box stops the script — the point being that
+you never have to open the PNG to find out.
 
 ## Notes
 

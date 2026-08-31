@@ -1,12 +1,12 @@
 ---
 name: xwiki-fix-sonarqube-issue
-description: Find and fix open SonarCloud (SonarQube) issues in the current XWiki repo, then open a PR and mark the issues Accepted. Use when asked to fix/clear/triage a SonarQube issue, reduce SonarCloud findings, or run a "fix one Sonar issue" pass. Per-rule fix correctness and drop conditions live in the OKF under okf/sonarqube/ — load the family file for the rule being fixed. For the build commands it relies on use xwiki-build; for PR/commit conventions use xwiki-pull-request.
+description: Find and fix open SonarCloud (SonarQube) issues in the current XWiki repo and open a PR. Use when asked to fix/clear/triage a SonarQube issue, reduce SonarCloud findings, or run a "fix one Sonar issue" pass. Per-rule fix correctness and drop conditions live in the OKF under okf/sonarqube/ — load the family file for the rule being fixed. For the build commands it relies on use xwiki-build; for PR/commit conventions use xwiki-pull-request.
 ---
 
 # Fix a SonarCloud (SonarQube) issue
 
-Finds open issues via the SonarCloud REST API, fixes them, opens a PR, and marks the issues
-*Accepted*. Works in whatever XWiki / xwiki-contrib repo the session runs in. Requires the
+Finds open issues via the SonarCloud REST API, fixes them and opens a PR.
+Works in whatever XWiki / xwiki-contrib repo the session runs in. Requires the
 `SONARQUBE_TOKEN` and per-repo `SONARQUBE_PROJECT_KEY` env vars (see the plugin README). The
 SonarCloud organization is `xwiki`. The repo you are working in is the local clone — read files from
 the working copy, never fetch them over a remote API.
@@ -150,14 +150,19 @@ the change is provably behaviour-preserving. Withdraw rather than argue: reply w
 and close the PR.
 
 Then **do not stop at closing it**. Ship the `@SuppressWarnings` + rationale version as its own PR,
-and `do_transition transition=reopen` the issues with a comment saying the suppression is what will
-close them on the next analysis. Post a correction comment on each issue whose earlier "Fixed by
-&lt;PR&gt;" comment is now wrong, and narrow the rule's entry in `okf/sonarqube/` to the code shape
-that provoked the objection — do not blanket-denylist a rule that is fine elsewhere.
+and narrow the rule's entry in `okf/sonarqube/` to the code shape that provoked the objection — do
+not blanket-denylist a rule that is fine elsewhere.
 
 ## Closing the issues
 
-After the PR is open, mark each issue *Accepted* with a comment linking the PR:
+**Never transition an issue the PR fixes.** SonarCloud closes it as FIXED on its own at the next
+branch analysis after the merge — a `@SuppressWarnings` fix included, since the rule then stops
+raising it. *Accepted* means "won't fix": on a fixed issue it buys nothing, and hides a real defect
+from the quality gate if the PR never lands. Turning a red gate green before the merge is the
+developer's call — ask.
+
+Transition only a finding the code keeps as it is — `falsepositive` for one that is wrong,
+`accept` for one that is real but deliberately not worth fixing — with a comment saying why:
 
 ```bash
 curl -s -u "$SONARQUBE_TOKEN:" -X POST "https://sonarcloud.io/api/issues/add_comment" \

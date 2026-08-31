@@ -35,7 +35,8 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
   `@xwiki/platform-*`), `xwiki.properties` property naming, UIXP/UIX ids, skins (bird names), icons.
 - **frontend** — JavaScript as AMD/RequireJS modules prefixed `xwiki-`, shipped as WebJars/JSX
   ("On demand only"), never inline; the minifier trap when Velocity is mixed into JavaScript and the
-  wrapper that separates them; deprecating a JS API via `compatibility.js`; WCAG 2.2 AA.
+  wrapper that separates them; deprecating a JS API via `compatibility.js`; CSS as a Skin Extension
+  and the LESS `contentType` needed to read colour-theme variables; WCAG 2.2 AA.
 - **translations** — the key lifecycle: only en_US is committer-maintained (US spelling), where a
   bundle lives and the l10n.xwiki.org + Weblate-script registration a new one needs, deprecating a key
   in the `#@deprecatedstart` section, renaming with `#@deprecated`, and why keys are never moved.

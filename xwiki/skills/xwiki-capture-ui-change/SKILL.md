@@ -72,7 +72,12 @@ wait for it (~40s); a capture against a half-started Jetty fails in confusing wa
 
 ```bash
 (cd "$INSTANCE_DIR" && ./start_xwiki.sh > "$INSTANCE_DIR/xwiki-start.log" 2>&1 &)
-until curl -sf -o /dev/null "$XWIKI_BASE_URL/bin/view/Main/WebHome"; do sleep 2; done; echo up
+UP=""
+for i in $(seq 1 60); do
+  curl -sf -o /dev/null "$XWIKI_BASE_URL/bin/view/Main/WebHome" && { UP=1; break; }
+  sleep 2
+done
+[ -n "$UP" ] && echo up || echo "not up after 2min, check $INSTANCE_DIR/xwiki-start.log"
 ```
 
 Every path here needs a running instance, including the file-copy ones. An instance you started is
@@ -149,7 +154,12 @@ so launch it detached and wait on its log rather than in the foreground:
 
 ```bash
 nohup "$XWIKI_CAPTURE_SKILL"/setup-instance.sh ... > /dev/null 2>&1 &
-until grep -qE "instance is up|FAILED|FAILURE" "$INSTANCE_DIR/setup-instance.log"; do sleep 5; done
+for i in $(seq 1 240); do
+  grep -qE "instance is up|WARNING: instance did not|VERIFY FAILED|ERROR|FAILED|FAILURE" \
+    "$INSTANCE_DIR/setup-instance.log" 2>/dev/null && break
+  sleep 5
+done
+tail -5 "$INSTANCE_DIR/setup-instance.log"   # which marker it hit, or nothing if it died early
 ```
 
 **Then assert the change from the capture script too.** `--verify` proves the right *bytes* were
@@ -205,18 +215,23 @@ Step 3 runs three times: **after** (`HEAD` → `after.png`), **before** (`<fix-c
 branch — do not skip this). If the fix is not committed, use `HEAD` for both and ask the user to
 commit first, per the git-safety rule above.
 
-**The assertion log lines are the authority.** If they are identical, stop: the cause is a deploy
-that did not land or a selector on the wrong node, not a screenshot problem. For the pixels,
-measure — a live instance's screenshots are not byte-reproducible, so `md5sum` reports spurious
-differences and proves nothing when it matches:
+**The assertion log lines are the authority**, and they need nothing installed. If they are
+identical, stop: the cause is a deploy that did not land or a selector on the wrong node, not a
+screenshot problem.
+
+Counting the differing pixels is an optional cross-check, worth running only where ImageMagick is
+already available. It is deliberately not a prerequisite of this skill. Never substitute `md5sum`
+for it: a live instance's screenshots are not byte-reproducible, so it reports spurious differences
+and proves nothing when it matches.
 
 ```bash
-compare -metric AE before.png after.png null: 2>&1   # differing pixel count (ImageMagick)
+command -v compare >/dev/null && compare -metric AE before.png after.png null: 2>&1
 ```
 
-There is no useful absolute threshold; capture the *same* state twice and measure that pair to get
-your noise floor. **A zero count is not automatically a bug** — plenty of worthwhile fixes are
-semantic (a `<button>` becoming an `<a href>`, an `aria-label` appearing). If the assertions differ
+If you do measure, there is no useful absolute threshold; capture the *same* state twice and
+measure that pair to get your noise floor. **A zero count is not automatically a bug** — plenty of
+worthwhile fixes are semantic (a `<button>` becoming an `<a href>`, an `aria-label` appearing).
+If the assertions differ
 and the pixels do not, the *fixture* is the problem: find an interaction state where the two
 diverge — keyboard focus is the reliable one — and say so in the caption rather than implying a
 visual regression that was never there.

@@ -73,8 +73,8 @@ resolve_repo() {
 
 # build_at_ref <goal> <ref> <module-dir>...
 # Builds every module at <ref>, then leaves BUILT_MODULES holding the directory each was built in -
-# the module itself for HEAD, its counterpart inside the throwaway worktree otherwise. The caller
-# removes the worktree (via remove_worktree) once it has finished reading from those directories.
+# the module itself for HEAD, its counterpart inside the throwaway worktree otherwise. Those
+# directories stay readable until the caller's remove_worktree EXIT trap fires.
 build_at_ref() {
   local goal="$1" ref="$2"
   shift 2
@@ -110,12 +110,16 @@ build_at_ref() {
   done
 }
 
-# An `if` rather than a `[ -d ... ] && git ...` one-liner: the HEAD path never creates a worktree,
-# so that form would make this function's exit status 1 whenever there is nothing to remove, and
-# the callers all run under `set -e`, which turns that into an abort part-way through the
-# procedure. An `if` whose condition is false succeeds, so the caller carries on either way.
+# Meant to be installed as an EXIT trap, so the throwaway worktree is removed however the script
+# ends, including the early exits a failed --verify takes. It is therefore safe to call at any
+# point: an unset WORKTREE_DIR, from a trap armed before resolve_repo ran, and a path that was
+# never created, on the HEAD ref, are both treated as nothing to remove.
+#
+# An `if` rather than a `[ -d ... ] && git ...` one-liner, so the exit status is 0 when there is
+# nothing to do. The callers all run under `set -e`, which would otherwise turn that status into an
+# abort part-way through the procedure.
 remove_worktree() {
-  if [ -d "$WORKTREE_DIR" ]; then
+  if [ -n "${WORKTREE_DIR:-}" ] && [ -d "$WORKTREE_DIR" ]; then
     git -C "$REPO_ROOT" worktree remove "$WORKTREE_DIR" --force
   fi
 }

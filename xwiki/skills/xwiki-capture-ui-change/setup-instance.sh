@@ -64,6 +64,9 @@ mkdir -p "$INSTANCE_DIR"
 exec > >(tee "$INSTANCE_DIR/setup-instance.log") 2>&1
 
 resolve_repo "$MODULE_DIR"
+# A trap rather than a call after the swap loop: a failed --verify exits from inside that loop, and
+# the worktree has to go either way.
+trap remove_worktree EXIT
 build_at_ref install "$GIT_REF" "$MODULE_DIR" "$@"
 
 echo "--- stopping instance (if running) ---"
@@ -116,8 +119,6 @@ for m in "${BUILT_MODULES[@]}"; do
     esac
   done
 done
-
-remove_worktree
 
 if [ "${#VERIFY_SPECS[@]}" -gt "$VERIFIED" ]; then
   echo "VERIFY FAILED: some --verify specs matched no swapped module's artifactId - check the jarHint" >&2

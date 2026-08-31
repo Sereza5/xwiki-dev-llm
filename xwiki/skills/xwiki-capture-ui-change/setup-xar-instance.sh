@@ -17,8 +17,10 @@
 # --base-url         Optional. Defaults to XWIKI_BASE_URL with any /xwiki suffix stripped, else
 #                    http://localhost:8080. The instance must already be UP: this script only
 #                    pushes wiki-page content over HTTP, it never starts or stops a server.
-# --user             Optional, default Admin:admin. HTTP Basic credentials - fine for this Import
-#                    flow, unlike the CSRF-protected POSTs that need a real browser session.
+# --user             Optional. HTTP Basic credentials, defaulting to XWIKI_ADMIN_USER and
+#                    XWIKI_ADMIN_PASS as SKILL.md step 0 exports them, else Admin:admin. Basic auth
+#                    is fine for this Import flow, unlike the CSRF-protected POSTs that need a real
+#                    browser session.
 # --verify           Optional, repeatable. After each import, re-export the given page as a XAR and
 #                    grep it, rather than trusting "N Page(s) installed" (that count is real but
 #                    says nothing about whether it is YOUR content or a same-named page from a
@@ -37,7 +39,7 @@ if [[ "${1:-}" == -h || "${1:-}" == --help || $# -eq 0 ]]; then usage 0; fi
 BASE_URL="${XWIKI_BASE_URL:-http://localhost:8080}"
 BASE_URL="${BASE_URL%/}"
 BASE_URL="${BASE_URL%/xwiki}"
-XWIKI_USER="Admin:admin"
+XWIKI_USER="${XWIKI_ADMIN_USER:-Admin}:${XWIKI_ADMIN_PASS:-admin}"
 VERIFY_SPECS=()
 
 while [[ "${1:-}" == --* ]]; do
@@ -59,7 +61,10 @@ MODULE_DIR="$1"
 GIT_REF="$2"
 shift 2
 COOKIE_JAR="$(mktemp)"
-trap 'rm -f "$COOKIE_JAR"' EXIT
+# One trap for both: a second `trap ... EXIT` would replace this one rather than add to it. The
+# worktree is cleaned up here rather than after the import loop because a failed import or --verify
+# exits from inside it. remove_worktree tolerates being called before resolve_repo has run.
+trap 'rm -f "$COOKIE_JAR"; remove_worktree' EXIT
 
 # A fresh form_token has to come from a real rendered page - it is session-bound, and a stale one
 # copy-pasted from an earlier fetch is rejected with "Invalid or missing form token", not a helpful
@@ -154,8 +159,6 @@ for m in "${BUILT_MODULES[@]}"; do
   fi
   import_xar "$XAR"
 done
-
-remove_worktree
 
 for spec in "${VERIFY_SPECS[@]:-}"; do
   [ -n "$spec" ] && verify_against "$spec"

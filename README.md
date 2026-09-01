@@ -105,6 +105,17 @@ ln -s "$XWIKI_LLM_HOME/xwiki/opencode/plugins/xwiki-line-endings.js" ~/.config/o
   the `SessionStart` hook appends the resolved absolute path to the injected conventions so the
   model does not have to guess it. Files that only matter until the end of the current session stay
   in the host's own session scratch directory.
+- **Docker IT slot limiter** (`xwiki/scripts/xwiki-it-slot.mjs`) — a wrapper that caps how many
+  XWiki functional-test runs (`-Pdocker,integration-tests`) execute at once on one machine, two by
+  default (`--max N`, or `XWIKI_LLM_IT_SLOTS`). Such a run holds a servlet engine, a browser
+  container of a couple of gigabytes and a ryuk, and writes SNAPSHOT artifacts into the shared
+  `~/.m2`; several agents launching one at the same time starve the Docker daemon, and starvation
+  surfaces as a failure in `beforeAll` that reads like a product bug rather than as an
+  out-of-resources error. Wrap the whole Maven invocation —
+  `node "${CLAUDE_PLUGIN_ROOT}/scripts/xwiki-it-slot.mjs" -- mvn verify …` — and later runs queue
+  instead of colliding; `--status` shows who holds what, the slot is released however the command
+  ends, and one whose holder died is reclaimed. Not a hook: the `xwiki-build` skill tells Claude to
+  use it, so it costs nothing in sessions that run no functional test.
 - **Line-ending guard** (`xwiki/scripts/check-line-endings.mjs`) — a `PostToolUse` hook on
   `Write`/`Edit` that checks every file written against the explicit `eol` declared by the repo's
   `.gitattributes` (via `git check-attr`). On a CRLF/LF mismatch it fails with a clear message so
@@ -338,10 +349,47 @@ XWIKI_PASSWORD=<your-xwiki.org-password>
 
 ```
 claude plugin validate ./xwiki   # manifest schema
-node scripts/validate.mjs        # repo consistency (skill inventory, version sync, OKF map)
+node scripts/validate.mjs        # repo consistency (skill inventory, version untouched + in sync, OKF map)
 ```
 
 `scripts/validate.mjs` also runs automatically in CI (GitHub Actions) on every push and pull request.
+
+## Versioning and releases
+
+Claude Code (and Kimi, and opencode) picks up a plugin change only when the version *increases*, and
+that version is written in five places across the three host manifests. **Pull requests never touch
+it.** They used to, and the result was that every open PR conflicted with every other one on those
+same five lines — a conflict that was never about either change. `scripts/validate.mjs` now fails any
+branch whose version differs from the base branch's.
+
+The release is cut on `master` instead, by `scripts/release.mjs`, which
+[GitHub Actions runs automatically](.github/workflows/release.yml) on every push to `master` that
+touches `xwiki/`. It sets all five fields, commits `[Misc] Release X.Y.Z` and tags `vX.Y.Z`; the tag
+is how the following run knows what has already shipped. To see what would happen without changing
+anything:
+
+```
+node scripts/release.mjs --dry-run
+```
+
+**Which segment moves is derived from the change, not asked for:**
+
+- **minor** — the capability *inventory* changed: a skill, an MCP server, a hook or an opencode
+  plugin was added or removed.
+- **patch** — anything else under `xwiki/` (OKF, skill and instruction wording).
+- **major** — never derived; it has to be asked for explicitly.
+
+Two ways to override it. For a change whose significance the file list cannot show, add a trailer to
+a commit message — unlike a version field, two branches can never conflict on one:
+
+```
+Release-Bump: minor
+```
+
+Or run the `release` workflow by hand from the Actions tab (`workflow_dispatch`) and choose the
+segment. Note that automatic releases need `master` to accept a push from `github-actions[bot]`; if
+`master` is protected, either allow the bot to bypass it or run `node scripts/release.mjs --push`
+locally instead.
 
 ## Contributing
 

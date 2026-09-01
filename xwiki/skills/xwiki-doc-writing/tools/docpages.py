@@ -95,6 +95,11 @@ def lint(mod):
                     problems.append(f'{where} double hyphen (strikethrough trap): {line[:80]}')
                 if re.search(r'##[^#]*https?://', line):
                     problems.append(f'{where} URL inside ## monospace: {line[:80]}')
+                # A `{{macro}}` written in an f-string field arrives as `{macro}` and renders as
+                # literal text; no violation object and no rendered error box says so.
+                if re.search(r'(?<!\{)\{/', line) or re.search(r'/\}(?!\})', line):
+                    problems.append(f'{where} single-brace macro (an f-string field halves '
+                                    f'`{{{{`, double them): {line[:80]}')
                 if re.search(r'\(% *style', line):
                     problems.append(f'{where} inline style: {line[:80]}')
                 if re.search(rf'https?://({farm})\.xwiki\.org', line):

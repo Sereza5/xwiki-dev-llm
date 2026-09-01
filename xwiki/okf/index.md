@@ -36,7 +36,9 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
 - **frontend** — JavaScript as AMD/RequireJS modules prefixed `xwiki-`, shipped as WebJars/JSX
   ("On demand only"), never inline; the minifier trap when Velocity is mixed into JavaScript and the
   wrapper that separates them; deprecating a JS API via `compatibility.js`; CSS as a Skin Extension
-  and the LESS `contentType` needed to read colour-theme variables; WCAG 2.2 AA.
+  and the LESS `contentType` needed to read colour-theme variables; WCAG 2.2 AA and the wiki-page
+  accessibility traps (naming a control emitted from a page, image alt text, `col-xs-*` is not
+  responsive).
 - **translations** — the key lifecycle: only en_US is committer-maintained (US spelling), where a
   bundle lives and the l10n.xwiki.org + Weblate-script registration a new one needs, deprecating a key
   in the `#@deprecatedstart` section, renaming with `#@deprecated`, and why keys are never moved.
@@ -114,6 +116,12 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
 - **component-system** — `@Role`/`@Component`/`components.txt`, `@Inject`/`@Named` hints, instantiation.
 - **macro-refactoring** — `MacroRefactoring` role (keyed by macro id) rewrites a macro's references on
   rename/move and extracts them for backlinks; `DefaultMacroRefactoring` is content-only (ignores parameters).
+- **wiki-application-data** — stored data in an XClass+wiki-page application: a non-multiSelect
+  `StaticListClass`/`DBListClass` property is a VARCHAR, so HQL/XWQL range filters on it compare
+  lexicographically (hidden while values are single characters); allocate a generated `Entry001` name
+  by creating the page, since deriving it from existing pages races for the whole editing session; a
+  wiki-page migration is idempotent only if it drops the object it matched on; and an entry template
+  must carry the marker class its queries locate it by.
 - **wiki-user-scope** — a subwiki's user scope (local/global/both) is stored on its own
   `WikiManager.WikiUserConfiguration` doc (not the descriptor) and defaults to `GLOBAL_ONLY` when absent.
 - **solr-search** — XWiki's Solr backend: embedded by default, externalisable to a remote/standalone
@@ -123,6 +131,14 @@ The full how-to-read-and-extend protocol is the `xwiki-knowledge` skill.
 
 ### testing/
 - **strategy** — test kinds & naming, no-stdout rule, lightest-base rule, the scenario rule (no two `@Test` methods build the same fixture; a distinct fixture is what justifies a distinct method; `@Order` is not a substitute), `@Order` source-ordering rule, the page-object boundary (no `getDriver()` in a test), don't-pay-the-timeout rule, reading a PRChecker log line, the bare `@UITest` on an `AllIT` container, coverage, framework locations.
+
+- **running-docker-its** — running `-Pdocker,integration-tests` on a developer machine rather than a
+  CI agent: how the browser container reaches XWiki under each servlet engine (host-gateway
+  `/etc/hosts` entry vs `xwikiweb` alias over Docker DNS) and why that makes the two configurations
+  exercise different networking, which engine the local loop should use and when the containerised
+  one is mandatory, the setup-failure symptom table (a `beforeAll` failure is never evidence about
+  your change), and what several agents on one machine contend for (host :8080, the daemon budget,
+  the shared `~/.m2`). Commands in `xwiki-build`.
 
 ### sonarqube/
 Which SonarCloud fixes are *correct* in XWiki, and — the question that actually matters — which look

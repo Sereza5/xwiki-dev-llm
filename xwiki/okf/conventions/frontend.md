@@ -70,3 +70,12 @@ XWiki Standard distribution — **XWiki Standard must keep working with `compati
   silently: the stylesheet compiles and emits only whatever fallbacks were written around it.
 - XWiki has committed to **WCAG 2.2 at level AA**. All features, new ones especially, must comply;
   the Accessibility Statement on xwiki.org tracks the current state.
+- Three traps specific to markup emitted from a **wiki page or sheet**:
+  - A control inside `{{html}}` needs a programmatically associated name — a `<label for>` bound to
+    the generated field id. A definition-list term (the `; label` / `: $doc.display(…)` idiom) is not
+    one, and neither is prompt text put in the input's `value`: that also *submits* as data when the
+    field is untouched, so use `placeholder`.
+  - `[[image:…]]` takes its alt text from the attachment filename unless given one. Pass
+    `||alt="…"`, and `alt=""` for an image that is decorative or a layout placeholder.
+  - `col-xs-*` never stacks, so it is not a responsive layout, and a fixed pixel width on media in
+    page content breaks SC 1.4.10 Reflow at 320px. Cap media with `max-width: 100%`.

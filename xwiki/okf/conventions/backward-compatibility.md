@@ -82,12 +82,17 @@ dropped, it **weaves the main artifact's bytecode with AspectJ** (`aspectj-maven
   (enforcer `bannedDependencies`) and **excludes** it from the clean dependency tree. So the first
   time a legacy module becomes a weaver, that pom must be updated too.
 
-Removing the API from the main module is itself a Revapi break, so it needs a `<revapi.differences>`
-ignore (`java.method.removed` / `java.class.removed`) justified by the move to legacy. The full
-procedure — migrate callers, remove, re-add, ignore, ban in the WAR, verify — is the `xwiki-legacy`
-skill.
+**Moving an API to legacy needs no Revapi ignore.** A main module wrapped by a weaving legacy module
+sets `<xwiki.revapi.skip>true</xwiki.revapi.skip>`, and Revapi runs on the legacy module instead,
+comparing the woven jar with its previous release — so the check is on what extensions actually get,
+and a failure there means the re-add is not faithful (fix the re-add, never ignore it). Never add an
+ignore pre-emptively; the only exception is a downstream consumer (see the last section). The full
+procedure — migrate callers, remove, re-add, ban in the WAR, verify — is the `xwiki-legacy` skill.
 
 ## Choosing the `<criticality>` of a Revapi ignore
+
+**Never add a Revapi ignore without the developer's explicit approval** — the goal is never to break
+existing users or extensions, so show them the reported break and why it is acceptable first.
 
 Every ignore added to a repo's `<revapi.differences>` carries a criticality, and **it feeds the release
 notes** (`allowed` items are not listed there), so it is not cosmetic:
@@ -96,7 +101,7 @@ notes** (`allowed` items are not listed there), so it is not cosmetic:
 |---|---|
 | `highlight` | a real break we still want to do — existing code using the API will or may fail at runtime, so users must be warned |
 | `documented` | a real break, but on `@Unstable` code |
-| `allowed` | not a break in our opinion: a semantically-"breaking" but harmless change (e.g. adding an annotation), a Revapi bug/limitation, or an API merely moved to another Maven module (the legacy case) |
+| `allowed` | not a break in our opinion: a semantically-"breaking" but harmless change (e.g. adding an annotation), a Revapi bug/limitation, or an API moved to another Maven module that a downstream consumer still reports (see the last section) |
 
 **Where the ignore goes** — two silent failures, both leaving the build failing with the ignore
 apparently in place. `<revapi.differences>` needs `combine.children="append"`, or Maven merges your
@@ -109,9 +114,10 @@ own configuration otherwise wins.
 Revapi analyses the primary artifact **and its transitive dependencies**, but only reports differences
 on dependency classes the primary artifact's own API *reaches*. Its coverage is therefore **not uniform
 per module**: a module can opt out with `<xwiki.revapi.skip>true</xwiki.revapi.skip>`
-(`xwiki-platform-oldcore` does), and a weaving `-legacy` module is green by construction since its jar
-re-adds whatever the main jar dropped. A break in such a module is invisible both on the module and on
-its legacy wrapper, and surfaces instead on an arbitrary **downstream consumer** — whichever one's API
-reaches the changed class, often far from the change (removing the `XWikiHibernateStore` constructors
-failed `xwiki-platform-extension-script`, which reaches the class via `XWiki.getHibernateStore()`). A
-green build on the changed module therefore never means "compatible".
+(every main module wrapped by a weaving `-legacy` module does, the legacy module checking the woven jar
+in its place). A downstream module that depends on the **clean** main jar still sees the dropped API as
+removed when its own API *reaches* the class, and fails far from the change (moving the
+`XWikiHibernateStore` constructors to legacy failed `xwiki-platform-extension-script`, which reaches the
+class via `XWiki.getHibernateStore()`). That, and only that, warrants an `allowed` ignore for a legacy
+move — added when that build actually fails, justified by the move, and approved (see above). A green build on the changed
+module therefore never means "compatible".

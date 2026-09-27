@@ -51,8 +51,8 @@ Per-run overrides on top of the skill:
 
 `xwiki/scripts/routine-setup.sh`, pasted into the routine's setup field, and **shared with the
 `xwiki-ci-check` routine**. A sandbox is new every run, so it installs everything past the
-checkouts: `gh`, the plugin, JDK 17 and 21, `xmvn`, and an `~/.m2/settings.xml` pointing at XWiki's
-Nexus. The JDKs and `xmvn` are what let one sandbox build any branch — `xwiki.java.version` is 17 up
+checkouts: `gh`, the plugin, JDK 17 and 21, `xmvn`, an `~/.m2/settings.xml` pointing at XWiki's
+Nexus, and a SessionStart hook that starts `dockerd`. The JDKs and `xmvn` are what let one sandbox build any branch — `xwiki.java.version` is 17 up
 to `stable-17.10.x` and 21 from `stable-18.4.x` on, and a build on a too-new JDK fails with JaCoCo's
 `Unsupported class file major version`, which reads as a code problem and is not.
 

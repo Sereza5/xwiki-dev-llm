@@ -70,6 +70,9 @@ Personal overrides on top of the skill:
 - **The setup script: `xwiki/scripts/routine-setup.sh`**, pasted into the routine's setup field. A
   sandbox is new every run, so everything past the checkouts is installed there every time — `gh`,
   the plugin itself, JDK 17 and 21, `xmvn`, and an `~/.m2/settings.xml` pointing at XWiki's Nexus.
+  It also writes, into `~/.claude/settings.json`, a SessionStart hook that starts `dockerd` (the
+  image has no running daemon) and the `autoMode` entries without which the classifier blocks the
+  PrivateBin paste as a public upload — the script's comments say why neither can live elsewhere.
   It is shared with the SonarCloud routine; keep it that way rather than letting two copies drift.
   **`xmvn` and the two JDKs are what make one sandbox able to verify a fix on any branch**: it reads
   `xwiki.java.version` from the pom and exports the matching `JAVA_HOME`, the maintained branches

@@ -145,7 +145,7 @@ means it needs nothing.
 | [`xwiki-jira`](xwiki/skills/xwiki-jira/) | View, search, create, update and transition jira.xwiki.org issues | `JIRA_API_TOKEN` | "file a bug for this in XWIKI" |
 | [`xwiki-jira-bfd`](xwiki/skills/xwiki-jira-bfd/) | Prepare a Bug Fixing Day: score the old backlog, propose closes and quick wins, apply only the approved closes (you run the apply) | `JIRA_API_TOKEN`; `TYPESAFE_TOKEN`, or the `claude` CLI as the judge | "prepare the BFD on the 5-year-old XWIKI bugs" |
 | [`xwiki-pull-request`](xwiki/skills/xwiki-pull-request/) | Commit format, PR template, squash and backport conventions | `gh` login | "open a PR for this branch" |
-| [`xwiki-review`](xwiki/skills/xwiki-review/) ⚠ | One specialist reviewer per angle, each finding challenged before it is posted | `gh` login | `/xwiki-review PR 6453` |
+| [`xwiki-review`](xwiki/skills/xwiki-review/) ⚠ | One specialist reviewer per angle, each finding challenged before it is posted; asks for a quick or full security pass when the private `xwiki-security` plugin is installed | `gh` login | `/xwiki-review PR 6453` |
 | [`xwiki-backport`](xwiki/skills/xwiki-backport/) | Cherry-pick to an older branch and *adapt* it (poms, Java level, `@since`, API drift) | `gh` login | "backport this to stable-18.8.x" |
 | [`xwiki-backport-testneeded`](xwiki/skills/xwiki-backport-testneeded/) | The `testneeded` sweep: backport one issue's test to every supported branch | `gh` login, `JIRA_API_TOKEN` | "backport the test of XWIKI-24710" |
 | [`xwiki-security-advisory`](xwiki/skills/xwiki-security-advisory/) | Draft a GitHub Security Advisory from a security-restricted issue | `JIRA_API_TOKEN` | "draft the advisory for XWIKI-25001" |

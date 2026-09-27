@@ -1,6 +1,6 @@
 ---
 name: xwiki-review
-description: "EXPLICIT INVOCATION ONLY — never load this skill for a plain review request. A deliberately expensive multi-angle, XWiki-aware review of a change set (pull request, commit range, or working tree): it fans out one specialist reviewer per angle (conventions, architecture, backward compatibility, security, performance, tests, accessibility, i18n/UX, documentation, data & migration, spec conformance), puts every finding through an independent skeptic, drops the ones that do not survive, and posts one grouped comment. Use ONLY when the user names it — `/xwiki-review`, \"run xwiki-review\", \"do the multi-angle/full/deep review\" — or when a CI routine invokes it by name. Do NOT use it for \"review this PR\", \"review my changes\", \"review the working tree\" or any other unqualified review request: those are answered directly, without this skill, because it costs far more tokens and time than a normal review. For opening the PR itself use xwiki-pull-request; for the conventions it enforces use xwiki-knowledge; for Sonar findings use xwiki-fix-sonarqube-issue."
+description: "EXPLICIT INVOCATION ONLY — never load this skill for a plain review request. A deliberately expensive multi-angle, XWiki-aware review of a change set (pull request, commit range, or working tree): it fans out one specialist reviewer per angle (conventions, architecture, backward compatibility, security, performance, tests, accessibility, i18n/UX, documentation, data & migration, spec conformance) — the security angle either quick (the public secure-coding conventions) or, when the private xwiki-security-review skill is available, full, at the developer's choice — puts every finding through an independent skeptic, drops the ones that do not survive, and posts one grouped comment. Use ONLY when the user names it — `/xwiki-review`, \"run xwiki-review\", \"do the multi-angle/full/deep review\" — or when a CI routine invokes it by name. Do NOT use it for \"review this PR\", \"review my changes\", \"review the working tree\" or any other unqualified review request: those are answered directly, without this skill, because it costs far more tokens and time than a normal review. For opening the PR itself use xwiki-pull-request; for the conventions it enforces use xwiki-knowledge; for Sonar findings use xwiki-fix-sonarqube-issue."
 ---
 
 # XWiki multi-angle review
@@ -32,6 +32,15 @@ Also resolve, once, up front:
 - `REPO`, the head SHA (`git rev-parse HEAD`, full 40 chars — needed for permalinks).
 - The JIRA key(s) in the commit subjects (`XWIKI-`, `XCOMMONS-`, `XRENDERING-`, contrib keys).
 - The list of changed files, with their extensions and modules.
+- The **security depth**, `quick` or `full`, decided before any work starts so the run never stalls
+  on it later:
+  - **`quick`** — the defensive-conventions angle of §4, grounded in `okf/conventions/security.md`
+    alone. The only depth when a CI routine invokes this skill, or when the session has no
+    `xwiki-security-review` skill (the private `xwiki-security` plugin) — then do not ask.
+  - **`full`** — run `xwiki-security-review` on the same change set in place of that angle (§4b).
+    Only offered when that skill is available and a developer is at the keyboard: ask whether they
+    want the full security review — it proves each finding on a disposable local instance and
+    costs far more time — or the quick one.
 
 ## 1. Eligibility gate — the deterministic checks first
 
@@ -75,7 +84,7 @@ Do not run all eleven on every change. Route from the changed-file profile:
 | **Conventions** | any source file | `okf/conventions/code-style.md`, `code-comments.md`, `commit-messages.md`, `logging.md` |
 | **Architecture** | any `.java` | `okf/architecture/component-system.md`, `macro-refactoring.md` |
 | **Backward compatibility** | any `.java` outside test/legacy dirs | `okf/conventions/backward-compatibility.md`, `versioning.md` |
-| **Defensive conventions** | always | `okf/conventions/security.md` |
+| **Defensive conventions** | always — at `full` depth, replaced by §4b | `okf/conventions/security.md` |
 | **Performance** | always | `okf/conventions/performance.md` |
 | **Tests** | always (a change with no test is itself the finding) | `okf/testing/strategy.md`, `xwiki-test-guidelines` |
 | **Accessibility** | `.vm`, `.html`, `.vue`, `.js`, `.less`, `.css`, UI `.xml` | `okf/conventions/frontend.md` (it names the committed WCAG level) |
@@ -240,6 +249,19 @@ for (scope creep that should be its own issue); requirements implemented in a wa
 actually fix the reported symptom. Quote the issue text for each. If the commit subject is not the
 issue title verbatim, that is a finding here.
 
+### 4b. Full security depth — delegate to `xwiki-security-review`
+
+At `full` depth the defensive-conventions angle does not run: `xwiki-security-review` does its work
+and more, loading the same `okf/conventions/security.md` plus the private mechanism knowledge base.
+Invoke it on the same change set (PR, range or working tree) as the other angles, concurrently with
+them, and let it follow its own procedure and gate unchanged.
+
+Its output **never joins this pipeline**: not §5's skeptics (it refutes and proves its own
+findings), not §6's comment, not any log. It stays in that skill's report in the work directory and
+in the terminal; §6's comment leaves the angle out of both its run and its skipped lists. Should
+the developer then ask to tell the author about one of its findings, that skill's gate says how —
+phrased as §6b prescribes, as one more finding of the comment.
+
 ## 5. Verification — every finding is challenged before it survives
 
 Collect every finding from every angle. Deduplicate: when two angles report the same line, keep the
@@ -355,8 +377,9 @@ say what changed mechanically, never that it closes a hole.
 **Out of scope, deliberately.** This routine does not hunt for novel vulnerabilities — the kind that
 require reasoning about reachability and attacker capability, which cannot be phrased mechanically
 and therefore cannot run here at all. That work stays with humans, on the security list, and with
-committers running this skill locally where nothing is published. The routine covers the
-conventions; it does not replace a security review, and it must never be described as one.
+committers running the `full` depth (§4b) locally, where nothing is published. The routine covers
+the conventions; it does not replace a security review, and it must never be described as one — nor
+may the comment say, or hint, that a `full` review ran.
 
 
 ## 7. Feed what you learned back

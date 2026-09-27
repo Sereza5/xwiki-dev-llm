@@ -53,7 +53,7 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **backward-compatibility** — what a public API may change, what Revapi checks, the `@Unstable`
   lifecycle, and evolving an interface with default methods.
 - **security** — writing scripts, templates and queries safely: escaping, untrusted input, the rights
-  a script runs with, injection.
+  a script runs with and how to check them, injection, parsing XML.
 - **script-services** — how a script service reports an error (it throws, the caller uses `#try()`;
   it does not return `null` for a `getLastError()` read-back) and takes arguments, and why an
   existing signature cannot change.

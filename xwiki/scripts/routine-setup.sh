@@ -131,3 +131,82 @@ cat > "${SETTINGS_FILE}" <<'EOF'
   </activeProfiles>
 </settings>
 EOF
+
+# --- Docker -------------------------------------------------------------------------------------
+#
+# The image ships docker, dockerd and containerd, but no daemon runs when a session starts, so
+# every Docker functional test and every flicker measurement fails on a missing socket. Starting it
+# here is not enough: the environment cache keeps what this script writes to disk and drops what it
+# leaves running, so the daemon has to be started by each session. The starter below goes on disk
+# here and runs from the SessionStart hook written in the next section. It prints on stdout only
+# when the daemon failed to come up, which the hook turns into context the session can read, rather
+# than a Docker IT failing an hour later for a reason nobody sees.
+
+sudo tee /usr/local/bin/xwiki-start-dockerd > /dev/null <<'EOF'
+#!/bin/bash
+SUDO=
+[[ $(id -u) -ne 0 ]] && SUDO=sudo
+${SUDO} docker info > /dev/null 2>&1 && exit 0
+${SUDO} setsid nohup dockerd > /var/log/dockerd.log 2>&1 < /dev/null &
+for _ in $(seq 60); do
+  ${SUDO} docker info > /dev/null 2>&1 && exit 0
+  sleep 1
+done
+echo "dockerd did not start within 60s, so Docker tests cannot run; see /var/log/dockerd.log."
+exit 0
+EOF
+sudo chmod +x /usr/local/bin/xwiki-start-dockerd
+
+# --- User settings: the dockerd hook and the auto mode classifier -------------------------------
+#
+# Both go in ~/.claude/settings.json because it is the only settings file that reaches the routine:
+# a session with several repositories reads no repo's `.claude/settings.json`, and the auto mode
+# classifier never reads `autoMode` from a repo's settings anyway, so that a checkout cannot grant
+# itself exceptions. Merged, not overwritten, because `claude plugin install` above keeps the
+# enabled plugin in the same file.
+#
+# The `autoMode` entries exist because the routine prompt is not live user input and so cannot
+# consent to a publication: without them the classifier blocks the PrivateBin paste as a "Public
+# Data-Sharing Upload", and the Matrix digest goes out with no link to its detail. `$defaults`
+# keeps every built-in rule; these only add XWiki's own hosts and name the paste as intended.
+
+node - <<'EOF'
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const file = path.join(os.homedir(), '.claude', 'settings.json');
+let settings = {};
+try {
+  settings = JSON.parse(fs.readFileSync(file, 'utf8'));
+} catch {
+  // No settings yet.
+}
+const union = (current, added) => [...new Set([...(current || []), ...added])];
+
+const starter = '/usr/local/bin/xwiki-start-dockerd';
+settings.hooks = settings.hooks || {};
+settings.hooks.SessionStart = (settings.hooks.SessionStart || [])
+  .filter((entry) => !(entry.hooks || []).some((hook) => hook.command === starter))
+  .concat([{ hooks: [{ type: 'command', command: starter }] }]);
+
+settings.autoMode = settings.autoMode || {};
+settings.autoMode.environment = union(settings.autoMode.environment, [
+  '$defaults',
+  '**XWiki infrastructure**: this session is the XWiki project\'s scheduled CI routine. These are the'
+    + ' organization\'s own services, not external destinations: the `xwiki` GitHub organization,'
+    + ' ci.xwiki.org (Jenkins), jira.xwiki.org, nexus-snapshots.xwiki.org, sonarcloud.io for the'
+    + ' `xwiki` organization, bin.xwikisas.com (XWiki SAS\'s own PrivateBin instance), and the'
+    + ' #xwiki:matrix.xwiki.com Matrix room reached through matrix.org.',
+]);
+settings.autoMode.allow = union(settings.autoMode.allow, [
+  '$defaults',
+  'XWiki CI digest paste: running the xwiki-ci-check skill\'s `privatebin.mjs --write` to post the'
+    + ' CI digest detail to bin.xwikisas.com, XWiki SAS\'s own PrivateBin instance (client-side'
+    + ' encrypted, expiring within two weeks), and putting the resulting URL in the Matrix digest, is'
+    + ' the routine\'s intended output and not a Public Data-Sharing Upload.',
+]);
+
+fs.mkdirSync(path.dirname(file), { recursive: true });
+fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
+EOF

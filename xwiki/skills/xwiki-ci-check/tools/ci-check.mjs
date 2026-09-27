@@ -2217,14 +2217,30 @@ function whyOf(incident) {
   return bits.filter(Boolean).join(' · ');
 }
 
+/**
+ * The key of an incident's open flicker issue. The sweep holds the issue, the work order holds only
+ * its key, and `--render-detail` renders from the work order — so both shapes reach the renderer.
+ */
+const jiraKey = incident => (typeof incident.jira === 'string' ? incident.jira : incident.jira?.key);
+
+/**
+ * How a closed flicker issue reads on a row. Without a Fix Version nobody can say which lines carry
+ * the fix, so it is named as closed, never as a fix this branch is known to have or to miss.
+ */
+const closedAs = closed => (closed.fixVersions?.length
+  ? `already fixed by ${closed.key} (${closed.fixVersions.join(', ')})`
+  : `${closed.key} closed as fixed, no Fix Version`);
+
 /** Why nobody is asked to do anything — always a reason, never an empty cell. */
 function noOneOwes(incident, horizonDays) {
   if (incident.beyondHorizon) return `older than the ${horizonDays}-day horizon — counted, not written about`;
   if (incident.jira) return 'already tracked — the issue is where this gets settled';
   if (incident.jiraClosed) {
-    return `${incident.jiraClosed.key} already fixed this test`
-      + `${incident.jiraClosed.fixVersions?.length ? ` in ${incident.jiraClosed.fixVersions.join(', ')}` : ''}`
-      + ' — compare that with this branch before filing anything';
+    return incident.jiraClosed.fixVersions?.length
+      ? `${incident.jiraClosed.key} already fixed this test in ${incident.jiraClosed.fixVersions.join(', ')}`
+        + ' — compare that with this branch before filing anything'
+      : `${incident.jiraClosed.key} was closed as fixed with no Fix Version — find its commit before`
+        + ' assuming this branch has it or lacks it';
   }
   if (incident.kind === 'flicker' && !incident.proven) {
     return 'not proven yet — an issue is earned by two builds on two days';
@@ -2267,7 +2283,7 @@ function nextOf(incident, { horizonDays, filing, stabilising, cause }) {
     if (filing) lines.push(`bot → file **one** issue for \`${filing.className}\` (${filing.scope})`);
     if (stabilising) lines.push('bot → measure the rate, fix, measure again, draft PR');
     if (incident.jira && incident.state === 'systematic') {
-      lines.push(`someone → re-triage ${incident.jira.key}: filed as a flicker, failing every run`);
+      lines.push(`someone → re-triage ${jiraKey(incident)}: filed as a flicker, failing every run`);
     }
   }
   if (incident.deep && !settled(incident) && !incident.beyondHorizon) {
@@ -2408,9 +2424,8 @@ function renderDetail(report, { live }) {
     for (const incident of section.list) {
       const cause = causeOf(incident);
       const meta = [kindOf(incident), agedAs(incident),
-        incident.jira ? `tracked as ${incident.jira.key}` : null,
-        incident.jiraClosed ? `already fixed by ${incident.jiraClosed.key}`
-          + `${incident.jiraClosed.fixVersions?.length ? ` (${incident.jiraClosed.fixVersions.join(', ')})` : ''}` : null,
+        incident.jira ? `tracked as ${jiraKey(incident)}` : null,
+        incident.jiraClosed ? closedAs(incident.jiraClosed) : null,
         incident.alsoOn?.length && incident.primary !== false ? `also red on ${incident.alsoOn.join(', ')}` : null,
         incident.buildUrl ? `[build](${incident.buildUrl})` : null].filter(Boolean).join(' · ');
       const name = isGate(incident) ? `**${subjectOf(incident)}**` : `\`${subjectOf(incident)}\``;

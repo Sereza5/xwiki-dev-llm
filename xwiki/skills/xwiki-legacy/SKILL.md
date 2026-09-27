@@ -6,7 +6,7 @@ description: Move a deprecated public XWiki API out of a main module into its ba
   to "move an API to legacy", to clean up a module's deprecated surface, or whenever you deprecate an
   API and want the old one gone from the main jar. Covers migrating in-repo callers to the
   replacement, removing the API, re-adding it via a plain legacy class or an AspectJ aspect, the
-  Revapi ignore, the coverage/pom fallout, and banning the main artifact in the WAR legacy
+  Revapi setup, the coverage/pom fallout, and banning the main artifact in the WAR legacy
   dependencies. For the build/verify commands use xwiki-build; for the
   `@since`/`@Deprecated(since)` version string use xwiki-knowledge; for the PR use xwiki-pull-request.
 ---
@@ -22,7 +22,7 @@ on the legacy jar; the main jar is clean.
 
 Do this only for a **public** API that has a **replacement** and is **not used** (or only lightly
 used, migratable) inside `xwiki-commons`, `xwiki-rendering` and `xwiki-platform`. Purely `internal`
-classes are not API — just delete them (with a Revapi ignore if flagged), no legacy needed.
+classes are not API — just delete them, no legacy needed.
 
 ## 1. Scope it and migrate callers first
 
@@ -88,6 +88,17 @@ for whole types, `xwiki-commons-legacy-velocity` / `xwiki-commons-legacy-compone
   predates default methods and instead pairs an abstract `Compatibility*` interface with a per-class
   ITD aspect; prefer the default-method form in new code.)
 
+Two traps the legacy module's build rejects:
+
+- A **compile-time constant** (`static final` primitive/`String`) cannot be an ITD field: AspectJ emits
+  it non-`final`, set from `<clinit>` (`java.field.noLongerConstant`). Declare it in a
+  `Compatibility<Class>Constants` interface in the legacy module and add
+  `declare parents : <Class> implements Compatibility<Class>Constants;` — interface fields are real
+  constants, and `<Class>.NAME` still resolves.
+- Any public member on a **`Serializable` class without an explicit `serialVersionUID`** fails AspectJ
+  (`Xlint:needsSerialVersionUIDField`, an error in XWiki builds). Add the field to the *main* class,
+  set to the value `serialver` computes on the last published jar, so serialized instances keep working.
+
 Give new legacy types/aspects `@since <next-version>RC1` (see xwiki-knowledge for the version
 string) and keep the original `@deprecated since …` line.
 
@@ -98,6 +109,9 @@ main artifact the moment it must modify an existing type. Mirror `xwiki-commons-
 `pom.xml`:
 
 - Properties: `xwiki.extension.features = <groupId>:<main-artifactId>` and an `xwiki.extension.name`.
+- In the **main** module's pom, `<xwiki.revapi.skip>true</xwiki.revapi.skip>` with the comment
+  `Skipping revapi since <legacy-artifactId> wraps this module and runs checks on it` — Revapi moves to
+  the legacy module, which checks the woven jar (see `xwiki-platform-refactoring-api`).
 - Dependencies: the main module as `<type>pom</type>` (trigger, no jar) **and** again as
   `<scope>provided</scope>` (build order + weaving source); add `org.aspectj:aspectjrt`.
 - `aspectj-maven-plugin` with a `<weaveDependency>` naming the main artifact.
@@ -111,27 +125,12 @@ main artifact the moment it must modify an existing type. Mirror `xwiki-commons-
 - If the module runs Spoon, set the `ComponentAnnotationProcessor` `skipForeignDeclarations=true`
   (the merged `components.txt` references classes that come from the woven dependency).
 
-## 5. Add the Revapi ignore
+## 5. No Revapi ignore
 
-Removing the API from the main module is a break Revapi will flag. Add a `<revapi.differences>` entry
-under `<analysisConfiguration>` of the repo's core aggregator pom — commons:
-`xwiki-commons-core/pom.xml`, platform: `xwiki-platform-core/pom.xml` — with `criticality` `allowed`
-and a justification that the API moved to the legacy module, e.g.
-
-```xml
-<item>
-  <ignore>true</ignore>
-  <code>java.method.removed</code>
-  <old>method java.lang.reflect.Field org.xwiki.properties.PropertyDescriptor::getFied()</old>
-</item>
-```
-
-Use `java.class.removed` for a whole type, and `&lt;init&gt;` for a constructor:
-`method void com.acme.store.Store::&lt;init&gt;(com.acme.Context)`.
-
-**Enumerate the items from your own diff, not from the build** — for some modules the build reports
-nothing at all (step 8), and a member unreported today breaks a downstream module tomorrow. Add the
-interface *and* each impl when Revapi tracks them separately.
+A move to legacy adds **no** `<revapi.differences>` entry: the main module skips Revapi (step 4) and the
+legacy module's Revapi compares the woven jar with its previous release. A Revapi error on the legacy
+module means the re-add is not faithful — fix the re-add. The one exception, a downstream consumer
+failing (step 8), is in the `backward-compatibility` OKF topic.
 
 ## 6. Fix the legacy module's coverage ratio
 
@@ -173,16 +172,14 @@ mvn clean install -B -ntp -Pquality,legacy \
 sanity-check the outcome with `javap` on the woven legacy classes: the main jar must no longer expose
 the API, and the legacy jar must re-add it.
 
-**This build cannot validate your Revapi ignore, so never read its silence as "no ignore needed".** The
-main module may skip Revapi (`grep revapi.skip <main-module>/pom.xml` — `xwiki-platform-oldcore` does),
-and the legacy weaver is green by construction since its jar re-adds the API. The break only shows up on
-a downstream consumer (the `backward-compatibility` OKF topic explains why), so verify there:
+A module depending on the **clean** main jar whose own API reaches the changed class still sees the
+member as removed. When the moved API sits on such a class, check one of those consumers:
 
 ```bash
 cd <a module depending on the main artifact> && mvn compile revapi:check -B -ntp -Pquality
 ```
 
-Run it with **and** without your ignore (`git stash push -- <core-pom>`): failing without and passing
-with is the only proof the `<old>` signature matches Revapi's own rendering.
+Only if it fails, show the developer the reported break and get their explicit approval, then add the
+`allowed` ignore the OKF topic describes and re-run it to prove the `<old>` signature matches.
 
 Open the PR with the `xwiki-pull-request` conventions (`[Misc]` prefix when there is no JIRA issue).

@@ -4,10 +4,10 @@ description: Move a deprecated public XWiki API out of a main module into its ba
   `-legacy` module, so the main artifact drops the dead API while the legacy artifact re-adds it for
   existing extensions. Use when asked to remove/retire a deprecated class, interface, method or field,
   to "move an API to legacy", to clean up a module's deprecated surface, or whenever you deprecate an
-  API and want the old one gone from the main jar. Covers migrating in-repo callers to the
-  replacement, removing the API, re-adding it via a plain legacy class or an AspectJ aspect, the
-  Revapi setup, the coverage/pom fallout, and banning the main artifact in the WAR legacy
-  dependencies. For the build/verify commands use xwiki-build; for the
+  API and want the old one gone from the main jar. Covers removing the API, re-adding it via a plain
+  legacy class or an AspectJ aspect, the Revapi setup, the coverage/pom fallout, and banning the main
+  artifact in the WAR legacy dependencies. To find and migrate the callers first, or to pick which
+  deprecation to retire, use xwiki-fix-deprecation. For the build/verify commands use xwiki-build; for the
   `@since`/`@Deprecated(since)` version string use xwiki-knowledge; for the PR use xwiki-pull-request.
 ---
 
@@ -20,18 +20,14 @@ weaves the main artifact with AspectJ and re-exports it under the same
 `xwiki.extension.features`. Existing extensions that still call the old API keep working by depending
 on the legacy jar; the main jar is clean.
 
-Do this only for a **public** API that has a **replacement** and is **not used** (or only lightly
-used, migratable) inside `xwiki-commons`, `xwiki-rendering` and `xwiki-platform`. Purely `internal`
-classes are not API — just delete them, no legacy needed.
+Do this only for a **public** API that nothing calls any more (step 1). Purely `internal` classes are
+not API — just delete them, no legacy needed.
 
-## 1. Scope it and migrate callers first
+## 1. No caller left first
 
-1. Confirm the API is deprecated and has a documented replacement (`@deprecated … use {@link …}`).
-2. Find every caller across the three repos (they are released together), e.g.
-   `grep -rn "getFied(" xwiki-commons xwiki-rendering xwiki-platform --include=*.java | grep -v /target/`.
-   The safest candidates have **zero production callers**.
-3. **Migrate all in-repo callers to the replacement** and commit that mentally as step one — the main
-   module and every consumer must compile without the deprecated API before you remove it.
+Confirm the API is deprecated with a documented replacement (`@deprecated … use {@link …}`), and that
+**no caller is left** in xwiki-commons, xwiki-rendering or xwiki-platform (released together), in any
+language: finding and migrating them is the `xwiki-fix-deprecation` skill.
 
 ## 2. Remove the API from the main module
 

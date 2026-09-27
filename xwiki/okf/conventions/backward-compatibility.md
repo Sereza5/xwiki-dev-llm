@@ -87,7 +87,8 @@ sets `<xwiki.revapi.skip>true</xwiki.revapi.skip>`, and Revapi runs on the legac
 comparing the woven jar with its previous release — so the check is on what extensions actually get,
 and a failure there means the re-add is not faithful (fix the re-add, never ignore it). Never add an
 ignore pre-emptively; the only exception is a downstream consumer (see the last section). The full
-procedure — migrate callers, remove, re-add, ban in the WAR, verify — is the `xwiki-legacy` skill.
+procedure — migrate callers (`xwiki-fix-deprecation`), then remove, re-add, ban in the WAR, verify
+(`xwiki-legacy`) — lives in those two skills.
 
 ## Choosing the `<criticality>` of a Revapi ignore
 

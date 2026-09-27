@@ -226,6 +226,11 @@ function factsOf(raw, markdown, { match, server, report, days }) {
   const configs = Object.entries(raw.configs || {});
   const failing = configs.filter(([, row]) => row.fail_count > 0)
     .sort((a, b) => b[1].fail_count - a[1].fail_count);
+  // Without a group the dates are the whole test's — still true of "first failed", and better than
+  // reading one group's dates as this failure's.
+  const first = group ? group.first : Math.min(...groups.map(entry => entry.first ?? Infinity));
+  const last = group ? group.last : Math.max(...groups.map(entry => entry.last ?? -Infinity));
+  const seen = value => (Number.isFinite(value) ? value : null);
   const recent = [...(group?.occurrences || [])].sort((a, b) => b.time - a.time);
   const artifact = (group?.artifacts || [])[0];
   return {
@@ -246,13 +251,13 @@ function factsOf(raw, markdown, { match, server, report, days }) {
     // When it started, as against the streak Jenkins can see. A flicker whose current streak is one
     // build has been failing for three weeks, and that is the difference between "a commit last
     // night broke this" and "this has always been broken and the window is a coincidence".
-    firstSeen: group?.first ? day(group.first) : null,
-    firstSeenDays: group?.first ? daysAgo(group.first) : null,
-    lastSeen: group?.last ? day(group.last) : null,
-    lastSeenDays: group?.last ? daysAgo(group.last) : null,
+    firstSeen: seen(first) != null ? day(first) : null,
+    firstSeenDays: seen(first) != null ? daysAgo(first) : null,
+    lastSeen: seen(last) != null ? day(last) : null,
+    lastSeenDays: seen(last) != null ? daysAgo(last) : null,
     // `new` is what `--recent-failures` calls a failure Develocity had not seen before today; it is
     // the one that may genuinely belong to a commit in the regression window.
-    news: group?.first == null ? null : daysAgo(group.first) <= 1 ? 'new' : 'known',
+    news: seen(first) == null ? null : daysAgo(first) <= 1 ? 'new' : 'known',
     configsRun: configs.length,
     configsFailing: failing.length,
     configs: failing.slice(0, 3).map(([name, row]) =>
@@ -291,7 +296,13 @@ function pickGroup(groups, match) {
     return { group, score: (wanted.includes(spelt(group.exception)) ? 4 : 0)
       + (exception && wanted.includes(exception) ? 3 : 0) + overlap };
   }).sort((a, b) => b.score - a.score || b.group.count - a.group.count);
-  return scored[0].score > 0 ? scored[0].group : null;
+  if (scored[0].score === 0) return null;
+  // A tie is no match either: groups that differ only in what the evidence line does not carry —
+  // the wait's interval, the source line — score the same, and breaking the tie on count names the
+  // biggest group, which is the guess this function exists to refuse. Measured on
+  // `RealtimeWYSIWYGEditorIT#dragAndDropFilesAtTheSameTime`, five `TimeoutException` groups with one
+  // message: a 2-second wait failing tonight was reported as the 10-second outage that ended weeks ago.
+  return scored.length > 1 && scored[1].score === scored[0].score ? null : scored[0].group;
 }
 
 /**

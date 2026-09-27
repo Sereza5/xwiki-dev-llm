@@ -96,8 +96,8 @@ Two traps the legacy module's build rejects:
   `declare parents : <Class> implements Compatibility<Class>Constants;` — interface fields are real
   constants, and `<Class>.NAME` still resolves.
 - Any public member on a **`Serializable` class without an explicit `serialVersionUID`** fails AspectJ
-  (`Xlint:needsSerialVersionUIDField`, an error in XWiki builds). Add the field to the *main* class,
-  set to the value `serialver` computes on the last published jar, so serialized instances keep working.
+  (`Xlint:needsSerialVersionUIDField`, an error in XWiki builds). Add
+  `private static final long serialVersionUID = 1L;` to the *main* class, as elsewhere in the codebase.
 
 Give new legacy types/aspects `@since <next-version>RC1` (see xwiki-knowledge for the version
 string) and keep the original `@deprecated since …` line.

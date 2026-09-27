@@ -134,7 +134,8 @@ means it needs nothing.
 |---|---|---|---|
 | [`xwiki-knowledge`](xwiki/skills/xwiki-knowledge/) | Answer "what is the rule here?" from the OKF, and extend it by PR | — | "what's our policy on comments in code?" |
 | [`xwiki-javadoc`](xwiki/skills/xwiki-javadoc/) | Write Javadoc per the XWiki code style | — | "javadoc this class" |
-| [`xwiki-legacy`](xwiki/skills/xwiki-legacy/) | Move a deprecated API to its `-legacy` module: migrate callers, remove, re-add, Revapi | — | "retire `XWikiRightService`" |
+| [`xwiki-fix-deprecation`](xwiki/skills/xwiki-fix-deprecation/) | Move every caller of a deprecated API — Java, Velocity, wiki pages, JS — to its replacement, then retire the API to legacy; proposes easy candidates | — | "fix some easy deprecations" |
+| [`xwiki-legacy`](xwiki/skills/xwiki-legacy/) | Move a deprecated API with no caller left to its `-legacy` module: remove, re-add, Revapi | — | "retire `XWikiRightService`" |
 | [`xwiki-translations`](xwiki/skills/xwiki-translations/) | Externalize and render i18n strings safely (escaping, word order) | — | "externalize these strings" |
 | [`xwiki-xar-pages`](xwiki/skills/xwiki-xar-pages/) | Edit extension wiki pages in a XAR (`xar:format` / `xar:verify` conventions) | — | "add a page to this XAR" |
 

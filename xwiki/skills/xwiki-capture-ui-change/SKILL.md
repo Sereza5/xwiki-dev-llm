@@ -170,8 +170,8 @@ change is only in files like those. When unsure of the root, locate the file:
 `${project.version}` can break at runtime, and the Extension Manager refuses outright. A `.vm` or a
 stylesheet is served as-is, so an 18.7.0 instance happily renders a template from an 18.8.0 branch.
 Do not spend 30-60 minutes copying a version-matched distribution for a file copy. If the xar route
-hits `InstallException: Dependency [...] is not compatible with core extension feature [...]`, take
-`xwiki-deploy-extension`'s import fallback, which writes the pages without the Extension Manager.
+hits `InstallException: Dependency [...] is not compatible with core extension feature [...]`, the
+instance has drifted from the branch's version: use a version-matched distribution.
 
 One change can span several rows (a xar module *and* a war module's CSS). Run each script per
 piece, against the same instance.

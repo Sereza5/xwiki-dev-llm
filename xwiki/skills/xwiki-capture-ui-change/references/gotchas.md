@@ -52,8 +52,7 @@ both cheaper and better evidence than a picture.
 - A branch rebased since it was opened can sit on a newer `${project.version}` than a cached test
   instance. That breaks the Extension Manager's install job for xar modules (`InstallException:
   Dependency [...] is not compatible with core extension feature [...]`), and so the
-  `xwiki-deploy-extension` route SKILL.md sends you to first; that skill's import fallback writes
-  the pages without going through the Extension Manager.
+  `xwiki-deploy-extension` route SKILL.md sends you to; the fix is a version-matched distribution.
 - A stale pre-built `.min.css`/`.min.js` sibling is served in preference to the raw file whenever a
   template loads it via `$xwiki.get('ssfx').use('path/to/foo.css', true)`, so overwriting only the
   raw file has zero visible effect. `sync-static-resource.sh` refreshes both.

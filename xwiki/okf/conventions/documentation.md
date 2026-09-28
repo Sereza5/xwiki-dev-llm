@@ -383,6 +383,13 @@ Use the guide for the authoring rules, and that page for what each structure fie
   can never use it), and it has **no `anchor` parameter** (so it cannot link to a section of a README).
   Signature (from [Macros.SCM](https://www.xwiki.org/xwiki/bin/view/Macros/SCM)): `user` (default
   `xwiki`), `project` (default `xwiki-platform`), `branch` (default `master`), `path`, `raw`.
+- **JIRA issues** — link a JIRA issue only to point at a **bug or limitation that is not fixed yet**
+  (the reader's workaround or the place to follow it), and re-check its status before linking. Never
+  link the issue that introduced a feature or fixed a bug: the page describes the current behavior,
+  and an issue number there is history the reader has no use for — its fix version, where it matters,
+  is a `{{version}}` badge instead. A link to a JQL query of *unresolved* issues is fine; so is the
+  project's issue tracker in Related links. When the issue gets fixed, the link and the sentence it
+  supports are updated or removed.
 - **Macros** — use the **code macro with an explicit `language` parameter** for code snippets
   (omitting it is slower and mis-colors). Use the **display macro** to avoid duplicated content: put
   repeated text/steps/images on a single hidden page and display it where needed.

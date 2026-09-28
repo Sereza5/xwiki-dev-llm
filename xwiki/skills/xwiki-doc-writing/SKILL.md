@@ -234,7 +234,9 @@ Each finding cites the rule it relates to; confirm against the live guide when b
       uses a `language` parameter.
 - [ ] **Punctuation** — no em dash is doing the job of a comma, period, colon or parentheses. Dashes
       inside a **direct quote** are never a finding.
-- [ ] **Links** — link-reference syntax (no hardcoded xwiki.org URLs); `{{scm}}` for GitHub files.
+- [ ] **Links** — link-reference syntax (no hardcoded xwiki.org URLs); `{{scm}}` for GitHub files; a
+      JIRA issue is linked only for a bug or limitation that is still unresolved, never for the issue
+      that added a feature or fixed a bug.
 - [ ] **Location** — `documentation.xs` for a bundled extension, `documentation.extensions` otherwise;
       then the most relevant existing topic for its audience/type.
 - [ ] **Versioning** — written for the latest version; `{{version}}` only for new/changed behavior;

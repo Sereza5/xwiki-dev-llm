@@ -21,6 +21,22 @@ disclosure ([[security-policy]] in the OKF owns the full rule):
 - Don't paste the vulnerability description into anything that isn't either the private GitHub
   advisory draft or a local work file.
 
+## No proof of concept in the advisory
+
+The advisory describes the vulnerability without enabling its reproduction: which feature or
+endpoint is affected, the general attack vector, the requirements (rights, configuration) and the
+impact — but **no PoC**: no exploit request, URL, payload, parameter values or step-by-step
+reproduction, even when the JIRA issue has them (they stay in JIRA, where they're needed for the
+fix). Scanners automatically import published advisories and try the reproduction steps they
+contain. This was proposed on the forum in September 2026 and is close to agreed
+(https://forum.xwiki.org/t/security-policy-dont-provide-poc-of-vulnerability-in-advisories/18875);
+check the live Security Policy (Step 2) for the current wording.
+
+**This is a change from past practice**: many published XWiki advisories contain a PoC or the exact
+request to reproduce the vulnerability (e.g. GHSA-57q2-6cp4-9mq3 gives the URL to call). Don't take
+past advisories as an example for the Impact section's level of detail — Step 3 uses them only for
+the wording of the CVSS comments.
+
 ## Step 1 — Fetch the source JIRA issue
 
 Security issues carry a restricted **Security Level** (e.g. "Confidential"), so `fields.security` is
@@ -35,7 +51,7 @@ curl -s -H "Authorization: Bearer $JIRA_API_TOKEN" \
 From the response's `fields`, collect:
 
 - `summary`, `description` (the vulnerability write-up, in JIRA wiki markup — usually has an
-  `h2. Impact` / `h2. PoC` structure you can lift from directly), `security` (confirms it's
+  `h2. Impact` / `h2. PoC` structure — lift the impact from it, never the PoC), `security` (confirms it's
   restricted), `priority`, `versions` (Affects), `fixVersions`, `reporter`.
 - Scan `customfield_*` values for a **CVSS vector string** (starts `CVSS:4.0/…` or `CVSS:3.1/…`) and
   its paired numeric score — instances number these fields differently, so grep for the shape, don't
@@ -109,7 +125,9 @@ gh api repos/<owner>/<repo>/security-advisories/<ghsa_id> --jq '.description'
 Match the **register** — tight and mechanism-specific, one sentence per row (e.g. "Reachable by a
 guest, who does not need an account." rather than a generic "Low privileges needed") — not the
 literal wording. This is wording inspiration only: the advisory's **section structure** still comes
-exclusively from the live template fetched in Step 2, never from a past advisory's layout.
+exclusively from the live template fetched in Step 2, never from a past advisory's layout, and
+past advisories are no example for the Impact section's level of detail (many contain a PoC, see
+"No proof of concept in the advisory") nor for the version ranges (see "Affected products").
 
 ## Step 4 — Draft the advisory
 
@@ -120,9 +138,9 @@ still missing to the user instead of guessing it.
 | Advisory field | Source |
 |---|---|
 | Title | JIRA `summary` |
-| Impact prose | JIRA `description`'s explanation/PoC, rewritten as impact + affected versions, in your own words — not a verbatim copy-paste of internal notes |
+| Impact prose | JIRA `description`'s explanation, rewritten as affected feature + attack vector + requirements + impact + affected versions, in your own words — **without the PoC** (see "No proof of concept in the advisory") and not a verbatim copy-paste of internal notes |
 | CVSS table | The vector found in Step 1, valued per the Step 2 scoring guidance, worded per the Step 3 precedent for the *comment* column |
-| Affected package(s) / vulnerable version range | The module(s) touched, and `versions` (Affects) → GitHub's version-range syntax — see "Affected products (packages) and version ranges" below |
+| Affected package(s) / vulnerable version range | The module(s) touched, and `versions` (Affects), verified against the code history → GitHub's version-range syntax — see "Affected products (packages) and version ranges" below, which also covers updating JIRA when they differ |
 | Patches | `fixVersions` if the fix isn't released yet ("will be fixed in…"); the actual released versions + patch commit once it is |
 | Workarounds | From the JIRA description if a mitigation is mentioned, else "no known workaround other than upgrading" |
 | References | The JIRA issue URL, plus the fix commit's SHA/URL — use an explicit placeholder such as `[commit SHA once merged]` until the fix actually lands, matching the Patches row below |
@@ -135,16 +153,27 @@ CWE-862, XSS is CWE-79, etc.).
 
 ### Affected products (packages) and version ranges
 
-Follow GitHub's guide
-(https://docs.github.com/en/enterprise-cloud@latest/code-security/tutorials/fix-reported-vulnerabilities/write-security-advisories)
-together with the pattern every already-published XWiki advisory uses (check a couple with `gh api
-repos/<owner>/<repo>/security-advisories/<ghsa_id> --jq '.vulnerabilities'`, same as in Step 3):
+Follow GitHub's best practices
+(https://docs.github.com/en/code-security/tutorials/fix-reported-vulnerabilities/write-security-advisories)
+— fetch the page when in doubt, `https://docs.github.com/api/article/body?pathname=/en/code-security/tutorials/fix-reported-vulnerabilities/write-security-advisories`
+returns it as Markdown. Ranges following that syntax let GitHub import the advisory into the
+GitHub Advisory Database as "GitHub-reviewed" without asking for more information, and let
+Dependabot alert exactly the affected users. Its own reference example is an XWiki advisory,
+[GHSA-wcg9-pgqv-xm5v](https://github.com/advisories/GHSA-wcg9-pgqv-xm5v): follow its shape.
+
+**Don't copy the ranges of past XWiki advisories.** Many were written by hand as a single
+open-ended range (`> 1.9M1`) with a comma-separated list of every fix version, and GitHub's curators
+rewrote them into per-branch bands when importing them into the Advisory Database — compare the
+repository advisory of GHSA-22q5-9phm-744v (`> 1.9M1` / `15.10.14,16.4.6,16.10.0-rc-1`) with its
+global advisory (three bands, one fix each). To check a precedent, read the *global* advisory
+(`curl -s https://api.github.com/advisories/<ghsa_id> | jq '.vulnerabilities'`, no token needed),
+not the repository one.
 
 - **Ecosystem:** `maven`. **Package name:** the leaf module's `groupId:artifactId` that actually
   carries the vulnerable code — never an umbrella/parent artifact. Examples from past advisories:
   `org.xwiki.platform:xwiki-platform-oldcore`, `org.xwiki.platform:xwiki-platform-office-viewer`,
   `org.xwiki.platform:xwiki-platform-repository-rest-server`. More than one module affected → one
-  **Affected product** entry per module, not a single combined one.
+  set of **Affected product** entries per module, not a single combined one.
 - **Legacy counterpart:** when the vulnerable module has a backward-compatibility module that also
   ships the vulnerable code, list it as its own **Affected product**, mirroring the main module's
   ranges and patched versions one-for-one. These modules live under
@@ -158,36 +187,80 @@ repos/<owner>/<repo>/security-advisories/<ghsa_id> --jq '.vulnerabilities'`, sam
   `grep -A5 weaveDependencies xwiki-platform-core/xwiki-platform-legacy/<legacy-module>/pom.xml` —
   and skip it when the legacy module only re-exports unrelated deprecated APIs. Published precedent:
   GHSA-57q2-6cp4-9mq3, GHSA-r38m-cgpg-qj69 and GHSA-3738-p9x3-mv9r all pair
-  `xwiki-platform-oldcore` with `xwiki-platform-legacy-oldcore` over identical ranges.
-- **Vulnerable version range:** usually a single open-ended lower bound,
-  `>= <oldest known affected version>`, with **no upper bound** — the flaw is present in every
-  release up to the fix. Add an upper bound only when the range genuinely has to stop: the
-  vulnerable code path was independently removed or replaced before the security fix landed, or you
-  are splitting the affected releases into one bounded band per maintained branch
-  (`>= 17.9.0-rc-1, < 17.10.14`, `>= 18.0.0-rc-1, < 18.4.6`, …) to show where each branch's fix
-  landed. Bands must tile the whole affected span with no gap, and each band's upper bound must
-  itself be one of the patched versions (the OSV rule in **Operator syntax** below).
-- **Patched version(s):** every entry lists **every fix version at or above its own range** — not
-  only the one from its own branch. XWiki backports a security fix to all maintained branches at
-  once, and this field answers "what can someone sitting on an affected release upgrade to", so it
-  is an upgrade-target list, not an attribution of which branch fixed what. With fixes in 17.10.14,
-  18.4.6 and 18.8.0, the band `>= 17.9.0-rc-1, < 17.10.14` carries `17.10.14, 18.4.6, 18.8.0`, the
-  band above it carries `18.4.6, 18.8.0`, and the newest carries `18.8.0` alone; a single
-  open-ended entry carries all three. Giving a band only its own fix (`17.10.14`) is the recurring
-  mistake — it hides every other upgrade target from the users in that band.
-  **Do not take this field from a published advisory**: some (e.g. GHSA-rh28-mqj4-8x59) list one
-  fix per band, so the Step 3 precedent-reading that is right for section structure and comment
-  wording will mislead you here.
-- **Version string format:** the dashed dev-version notation, e.g. `18.7.0-rc-1`, never the
-  JIRA/`@since`-style `18.7.0RC1` — GitHub's comparator treats a hyphenated suffix as a prerelease
-  (`2.0.0-a` sorts *before* `2.0.0`), so getting this wrong silently breaks the range.
-- **Operator syntax:** a space between the operator and the version (`>= 1.0.0`, not `>=1.0.0`); a
-  comma **and** a space between the two bounds of one range (`>= 1.0.0, <= 2.0.0`); `<=` when the
-  named version is itself the patched one, `<` when it's the first *unpatched* one — this is exactly
-  the OSV exclusive-upper-bound trap the live template already flags in Step 2 (you cannot write
-  `< 17.10.9` unless `17.10.9` is also a patched version — write `<= 17.10.8` instead). A single
-  field cannot express a disjoint range (e.g. two separate vulnerable bands): use two Affected
-  product entries for the same package instead of trying to combine them.
+  `xwiki-platform-oldcore` with `xwiki-platform-legacy-oldcore` over identical ranges. When there is
+  no counterpart, say so to the user, so that it's visible the check was made.
+- **One band per fix:** one **Affected product** entry per branch that receives the fix, each with a
+  lower *and* an upper bound — a field cannot hold several ranges. The oldest band starts at the
+  first affected release, each following band at the first release of the branch after the
+  previous fix (`>= 17.0.0-rc-1`, `>= 18.5.0-rc-1`, …), and each band ends at its own fix:
+
+  | Vulnerable version range | Patched version |
+  |---|---|
+  | `>= 5.4.2, < 16.10.19` | `16.10.19` |
+  | `>= 17.0.0-rc-1, < 17.10.14` | `17.10.14` |
+  | `>= 18.0.0-rc-1, < 18.4.6` | `18.4.6` |
+  | `>= 18.5.0-rc-1, < 18.9.0-rc-1` | `18.9.0-rc-1` |
+
+  The releases *between* two bands (16.10.19 and later 16.10.x, …) are patched, so they're the gaps
+  between the bands, not part of any band. Never leave the newest band without an upper bound: GitHub
+  advises against a range with only a lower bound, because users of the fixed version keep getting
+  Dependabot alerts. A vulnerability affecting only a prerelease gets `= <version>`, like
+  `= 16.0.0-rc-1` → `16.0.0` in GHSA-wcg9-pgqv-xm5v (`=` matches only that exact version).
+- **Patched version:** exactly **one version per band, the band's own upper bound** — the global
+  advisory only keeps a single "first patched version" per band, which is what Dependabot suggests
+  upgrading to. Don't list the fixes of the other branches: the other bands already express them.
+  GitHub also rejects a patched version lower than the band's highest vulnerable version.
+- **First affected release:** verify JIRA's "Affects Version/s" instead of taking it as is. Find the commit(s) that
+  introduced the vulnerable code and take the lowest release tag that contains them —
+  `git tag --contains <sha> | grep -E '^xwiki-platform-[0-9]' | sort -V | head` — which also catches
+  backports to an older branch (XWIKI-24737: the code came with 6.0-milestone-1, but a backport put
+  it in 5.4.2 already). When the attack also depends on something else (a bundled library version,
+  another feature), check that it works in that release too, and tell the user when the attack
+  differs in the older releases (e.g. only a weaker variant).
+- **Module history:** check that each affected package existed under that `artifactId` over the
+  whole affected range, since modules get renamed, split and merged: look for its `pom.xml` in the
+  tag of the first affected release (`git ls-tree -r --name-only <tag> | grep '/<artifactId>/pom.xml$'`)
+  and follow the vulnerable file back (`git log --follow --name-status -- <file>`). When the code
+  lived in another module before, add **Affected product** entries for the old `artifactId` too,
+  covering the releases up to the move, e.g. `>= 3.1-milestone-2, < 13.4-rc-1` → `13.4-rc-1`; and
+  start the new module's first band at the release that introduced it. Example: templates of
+  `xwiki-platform-web-templates` were in the WAR `xwiki-platform-web` until 13.4-rc-1 split it into
+  `xwiki-platform-web-templates` and `xwiki-platform-web-war` (and in `xwiki-web-standard` before
+  3.1-milestone-1) — GHSA-gr82-8fj2-ggc3 and GHSA-93gh-jgjj-r929 list both. Counterexample:
+  GHSA-wf3x-jccf-5g5g lists only `xwiki-platform-web-war` from 4.2-milestone-3, so scanners miss
+  every release before 13.4-rc-1, which shipped the code as `xwiki-platform-web`. Don't dig into
+  ancient history: releases that old have more severe known vulnerabilities anyway, so going back
+  further than a few years' worth of renames is rarely worth it — but a recent rename matters.
+- **Repackaging modules:** some modules embed a copy of another module's artifact through a
+  `maven-dependency-plugin` `<artifactItem>` (unpack/copy) — e.g. `xwiki-platform-web-war` unpacks
+  `xwiki-platform-web-templates` into the WAR — so an installation can run the vulnerable code
+  while only the repackaging artifact is visible. Find them with
+  `rg -l --glob pom.xml '<artifactId>VULNERABLE_ARTIFACT_ID</artifactId>' | xargs grep -l artifactItem`,
+  confirm the `<artifactItem>` really names the vulnerable module, and list the repackaging module
+  as its own **Affected product** with the same bands (like a legacy counterpart; mind its own module
+  history). The same applies to webjars bundling JavaScript built by `xwiki-platform-node`.
+- **Keep JIRA in sync:** when the verified first affected release differs from JIRA's "Affects
+  Version/s", or the patched versions from its "Fix Version/s", update the issue with the verified
+  values (xwiki-jira skill; the field conventions are in `okf/servers/jira.md`), so that JIRA, the
+  advisory and the Security Advisory Application agree. Without write access to JIRA (e.g. no
+  token), tell the user exactly which values to set on which issue instead of leaving it silently
+  out of sync.
+  Optionally, also link the issue(s) that introduced the vulnerable code: the commits found for the
+  first affected release name them.
+- **Version string format:** the actual Maven version, as in the release tag — `18.7.0-rc-1`, never
+  the `@since`-style `18.7.0RC1`. JIRA version names use the same syntax as Maven, so they can be
+  used as is. Releases before 16.0 have no `.0` patch segment in
+  milestones and release candidates (`15.0-rc-1`, `6.0-milestone-1`). GitHub's comparator treats a
+  hyphenated suffix as a prerelease (`2.0.0-a` sorts *before* `2.0.0`) and compares it
+  alphabetically, so a wrong format silently breaks the range. Up to 8.3, a branch's first
+  release is its first milestone (`milestone` sorts before `rc`), so `>= 6.0-rc-1` would exclude
+  6.0-milestone-1 and 6.0-milestone-2; take the lower bound from the tags.
+- **Operator syntax:** only `>=` for lower bounds — `>` isn't supported by OSV and a global advisory
+  only allows it as `> 0`; a single space between the operator and the version (`>= 1.0.0`); a comma
+  and a space between the two bounds (`>= 1.0.0, < 2.0.0`); no leading or trailing spaces. For the
+  upper bound, `< n` only when `n` is not vulnerable, i.e. is the patched version — otherwise
+  `<= n` with the last vulnerable version (the OSV trap the live template flags in Step 2: you
+  cannot write `< 17.10.9` unless `17.10.9` is the patched version).
 
 ## Step 5 — Save the draft
 

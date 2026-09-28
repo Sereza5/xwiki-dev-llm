@@ -15,9 +15,9 @@
 #                    first two colons only, so the pattern may contain colons and spaces. E.g.
 #                    'tree-webjar:META-INF/resources/webjars/*/finder.js:xwiki-icon'.
 # <instance-dir>     path to an XWiki jetty+hsqldb distribution root. Keep it outside any
-#                    git-tracked checkout (see $XWIKI_TEST_INSTANCES_DIR in SKILL.md step 0) so
-#                    instance logs and swapped jars never show up as untracked files in the repo
-#                    under comparison.
+#                    git-tracked checkout (see $INSTANCES in SKILL.md step 0) so instance logs
+#                    and swapped jars never show up as untracked files in the repo under
+#                    comparison.
 # <module-dir>       path to the maven module to build. Its packaging must be jar (or webjar).
 # <git-ref-or-HEAD>  "HEAD" to build the working tree exactly as it sits, uncommitted changes and
 #                    all, or a commit-ish (e.g. <fix-commit>~1) to build via a throwaway sparse

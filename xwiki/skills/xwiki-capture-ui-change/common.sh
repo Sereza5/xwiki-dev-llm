@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Shared helpers for setup-instance.sh, setup-xar-instance.sh and sync-static-resource.sh: usage
-# output, the Maven invocation, resolving a module's coordinates, and building it at an arbitrary
-# git ref through a throwaway sparse worktree. sync-static-resource.sh needs no Maven and uses only
-# usage(). Sourced, never run directly.
+# Shared helpers for setup-instance.sh and sync-static-resource.sh: usage output, the Maven
+# invocation, resolving a module's coordinates, and building it at an arbitrary git ref through a
+# throwaway sparse worktree. sync-static-resource.sh needs no Maven and uses only usage(). Sourced,
+# never run directly.
 
 # Print the sourcing script's own header comment as its usage text, so `--help` and a missing
 # argument both explain the interface instead of dying on an unbound variable. awk, not sed: the

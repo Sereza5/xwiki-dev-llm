@@ -8,8 +8,6 @@ both cheaper and better evidence than a picture.
 
 ## Fixtures
 
-- The `propadd` action's query param for the property type is **`proptype`**, not `type`. The wrong
-  name fails silently: 200 response, redirects normally, adds nothing.
 - The object editor's "WebHome 0:" row expands by clicking its **text**, not a caret icon by index
   - there are two nested `.toggle-collapsable` elements, class-group and object, and clicking the
   outer one collapses everything instead.
@@ -41,12 +39,6 @@ both cheaper and better evidence than a picture.
   crop: 155. On a restyled suggestion row: 3097. A file against itself: 0. The count scales with
   crop size and with how much changed, so treat those as illustrations, not thresholds, and get a
   noise floor by measuring two captures of the same state.
-- **Why a real browser session, not curl, for CSRF-protected writes.** Some endpoints - the
-  annotation-rest module's POST among them - reject `curl` with "Invalid or missing form token"
-  even with a scraped `form_token` and a real form-login session. Not root-caused; response caching
-  serving a stale token is the suspect, since the same token survived a fresh login.
-- **XWiki serves its login page with HTTP 401 by design**, form included. Wait for the form rather
-  than gating on the status. `xwiki-login` already does.
 
 ## Builds, jars and deployment
 
@@ -60,8 +52,8 @@ both cheaper and better evidence than a picture.
 - A branch rebased since it was opened can sit on a newer `${project.version}` than a cached test
   instance. That breaks the Extension Manager's install job for xar modules (`InstallException:
   Dependency [...] is not compatible with core extension feature [...]`), and so the
-  `xwiki-deploy-extension` route SKILL.md sends you to first. It is the one case where
-  `setup-xar-instance.sh` earns its keep, pushing the XAR through the raw wiki Import flow instead.
+  `xwiki-deploy-extension` route SKILL.md sends you to first; that skill's import fallback writes
+  the pages without going through the Extension Manager.
 - A stale pre-built `.min.css`/`.min.js` sibling is served in preference to the raw file whenever a
   template loads it via `$xwiki.get('ssfx').use('path/to/foo.css', true)`, so overwriting only the
   raw file has zero visible effect. `sync-static-resource.sh` refreshes both.

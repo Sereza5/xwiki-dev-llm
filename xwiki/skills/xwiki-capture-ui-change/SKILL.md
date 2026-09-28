@@ -1,6 +1,6 @@
 ---
 name: xwiki-capture-ui-change
-description: Capture the "before" screenshot of an XWiki UI change - the one the branch can no longer produce - by building and deploying the pre-fix code on a local instance, then screenshotting the same fixture in both states. EXPENSIVE (a module build and two instance restarts) and NARROW — use it only for a fix to EXISTING UI whose visual difference is too subtle to see without the two states side by side (a corner radius, a spacing or alignment shift, a colour, a wrong icon). Do NOT use it for a new feature, a redesign, or any change a reader can see in a single screenshot - those need no "before" and are shown with an ordinary screenshot. Requires explicit user approval before running. For deploying an extension without a comparison use xwiki-deploy-extension; for Maven commands use xwiki-build; for the PR/JIRA screenshot conventions use xwiki-pull-request.
+description: Capture the "before" screenshot of an XWiki UI change - the one the branch can no longer produce - by running the released version's Docker image, or else building and deploying the pre-fix code on a local instance, then screenshotting the same fixture in both states. EXPENSIVE (minutes for the Docker image, a module build and two instance restarts otherwise) and NARROW — use it only for a fix to EXISTING UI whose visual difference is too subtle to see without the two states side by side (a corner radius, a spacing or alignment shift, a colour, a wrong icon). Do NOT use it for a new feature, a redesign, or any change a reader can see in a single screenshot - those need no "before" and are shown with an ordinary screenshot. Requires explicit user approval before running. For deploying an extension without a comparison use xwiki-deploy-extension; for Maven commands use xwiki-build; for the PR/JIRA screenshot conventions use xwiki-pull-request.
 ---
 
 # Capture an XWiki UI change
@@ -27,8 +27,9 @@ Do **not** run it for:
 In all three cases take an ordinary screenshot of the result and follow `xwiki-pull-request`'s
 "Screenshots & Video" rule. Do not reach for this skill.
 
-**Ask the user before starting.** This costs a Maven build (minutes to tens of minutes), two
-instance restarts, and a bespoke capture script. Say what it will cost and get an explicit yes.
+**Ask the user before starting.** This costs a released-version Docker instance (a few minutes),
+or else a Maven build (minutes to tens of minutes) and two instance restarts, plus a bespoke capture
+script either way. Say what it will cost and get an explicit yes.
 The two file-copy paths below are the exception — seconds, no build — but still confirm.
 
 ## Never write to git in the repo under comparison
@@ -41,19 +42,62 @@ uncommitted changes and all, or a commit-ish to build it in their own throwaway 
 for the "after". An agent following an earlier draft of this procedure amended the user's own
 commit trying to "make the before/after refs work".
 
+## Cheapest first: is the "before" already released?
+
+When the bug is in a release — the issue's Affects Version says so — shoot the "before" on that
+release's official Docker image: no module build, no jar swap, no distribution to copy, about three
+minutes once the image is pulled. Steps 0-4 are for the rest: a bug that exists only in unreleased
+code (a regression on the branch the fix targets), or a released UI that differs from the branch's
+around the fixture enough that the two shots stop being comparable. The "after" is shot on your
+branch's instance either way.
+
+```bash
+V=18.7.0   # the latest release the bug affects
+docker network create xwiki-before
+docker run -d --name xwiki-before-db --net xwiki-before -e MYSQL_ROOT_PASSWORD=xwiki \
+  -e MYSQL_DATABASE=xwiki mysql:8.4 --character-set-server=utf8mb4 \
+  --collation-server=utf8mb4_bin --explicit-defaults-for-timestamp=1
+docker run -d --name xwiki-before --net xwiki-before -p 8089:8080 -e DB_HOST=xwiki-before-db \
+  -e DB_USER=root -e DB_PASSWORD=xwiki -e DB_DATABASE=xwiki "xwiki:$V-mysql-tomcat"
+```
+
+Pick a host port nothing listens on (8089 here). Three things about the image are not obvious:
+
+- **XWiki connects as the database root user.** A `MYSQL_USER` account lacks the `PROCESS`
+  privilege XWiki's schema migration needs, and a first start that fails on it leaves a
+  half-created schema behind: recreate both containers rather than restarting one.
+- **It serves XWiki at the root context:** `export XWIKI_BASE_URL=http://localhost:8089`, with no
+  `/xwiki`.
+- **It starts as an empty wiki** that sends every request, REST included, to the Distribution
+  Wizard. Skip the wizard: enable `superadmin`, turn off the wizard's automatic start, restart, and
+  install the flavor with `xwiki-deploy-extension`'s install job as `superadmin:system` — extension
+  `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki`, version `$V`, namespace
+  `wiki:xwiki`. The job downloads from extensions.xwiki.org and takes a couple of minutes.
+
+```bash
+docker exec xwiki-before sh -c 'W=/usr/local/tomcat/webapps/ROOT/WEB-INF
+  sed -i "s/^# xwiki.superadminpassword=system/xwiki.superadminpassword=system/" $W/xwiki.cfg
+  echo distribution.automaticStartOnMainWiki=false >> $W/xwiki.properties'
+docker restart xwiki-before
+until curl -sf -o /dev/null -u superadmin:system "$XWIKI_BASE_URL/rest/wikis/xwiki"; do sleep 3; done
+```
+
+Then pick the fixture (step 2) and shoot it with the capture script of step 3, sending
+`superadmin:system` as the Basic credentials. Remove the containers when done:
+`docker rm -f xwiki-before xwiki-before-db && docker network rm xwiki-before`.
+
 ## 0. Environment, and an instance to reuse
 
 ```bash
 # This skill's directory. Kimi Code: ${KIMI_SKILL_DIR}. opencode:
 # $XWIKI_LLM_HOME/xwiki/skills/xwiki-capture-ui-change.
 export XWIKI_CAPTURE_SKILL="${CLAUDE_PLUGIN_ROOT}/skills/xwiki-capture-ui-change"
-# Test distributions, kept outside any checkout so instance logs and swapped jars never show up as
-# untracked files. Every script and snippet reads the URL vars, so set them even at their defaults.
-XWIKI_TEST_DEFAULT="${XDG_DATA_HOME:-$HOME/.local/share}/xwiki-test-instances"
-export XWIKI_TEST_INSTANCES_DIR="${XWIKI_TEST_INSTANCES_DIR:-$XWIKI_TEST_DEFAULT}"
+# The work directory of the org conventions. Test distributions are reused across tickets, so they
+# sit beside the per-ticket directories; this ticket's screenshots and capture script go in its own.
+WORK="$(node "$XWIKI_CAPTURE_SKILL/../../scripts/state-dir.mjs")/xwiki-platform"
+INSTANCES="$WORK/test-instances"
+export CAPTURE_DIR="$WORK/$(date +%F)-<ticket>-capture"; mkdir -p "$CAPTURE_DIR"
 export XWIKI_BASE_URL="${XWIKI_BASE_URL:-http://localhost:8080/xwiki}"
-export XWIKI_ADMIN_USER="${XWIKI_ADMIN_USER:-Admin}"
-export XWIKI_ADMIN_PASS="${XWIKI_ADMIN_PASS:-admin}"
 ```
 
 Prerequisites: a prebuilt XWiki jetty+hsqldb distribution (building one takes 30-60+ minutes, so
@@ -61,7 +105,7 @@ copy an existing one), and Playwright with Chromium. Check before starting, not 
 
 ```bash
 pgrep -af 'STOP.KEY=xwiki'; lsof -nP -iTCP:8080 -sTCP:LISTEN   # something already running?
-ls "$XWIKI_TEST_INSTANCES_DIR"                                  # something to copy?
+ls "$INSTANCES"                                                 # something to copy?
 ls ~/.cache/ms-playwright   # else npm i playwright && npx playwright install chromium
 ```
 
@@ -106,8 +150,8 @@ change is only in files like those. When unsure of the root, locate the file:
 `${project.version}` can break at runtime, and the Extension Manager refuses outright. A `.vm` or a
 stylesheet is served as-is, so an 18.7.0 instance happily renders a template from an 18.8.0 branch.
 Do not spend 30-60 minutes copying a version-matched distribution for a file copy. If the xar route
-hits `InstallException: Dependency [...] is not compatible with core extension feature [...]`, fall
-back to `setup-xar-instance.sh`, which pushes the XAR through the Import page instead.
+hits `InstallException: Dependency [...] is not compatible with core extension feature [...]`, take
+`xwiki-deploy-extension`'s import fallback, which writes the pages without the Extension Manager.
 
 One change can span several rows (a xar module *and* a war module's CSS). Run each script per
 piece, against the same instance.
@@ -123,10 +167,14 @@ grep -rln "btn-group-last" --include=*.vm --include=*.less
 Do **not** drive a feature's whole wizard — AppWithinMinutes' drag-and-drop class editor, say —
 unless the workflow itself is what changed. That is where the flakiness lives.
 
-*Sub-case:* when the change is one PropertyClass's `displayEdit()`/`displayView()` output there is
-no existing page to find; `setup-class-object.js <space> <prop> <propTypeFQCN>` creates the class
-and object via action URLs, far more reliably than the class editor. Use a fresh space name per
-state so a stale page can never be mistaken for the other one.
+*Sub-case:* when the change is one PropertyClass's `displayEdit()`/`displayView()` output, find a
+class the distribution already ships with a property of that type, and open a page holding one of
+its objects in the object editor (`?editor=object`) or in inline edit mode:
+
+```bash
+grep -rl --include='*.xml' '<classType>com.xpn.xwiki.objects.classes.NumberClass</classType>' \
+  xwiki-platform-core | grep /src/main/resources/
+```
 
 **Dump the fixture's container before writing any selector** — assuming one exists is the fastest
 way to burn a 30-second Playwright timeout:
@@ -142,7 +190,7 @@ Run this once per state. Which script comes from the table in step 1.
 ```bash
 "$XWIKI_CAPTURE_SKILL"/setup-instance.sh \
   --verify 'tree-webjar:META-INF/resources/webjars/*/finder.js:xwiki-icon' \
-  "$XWIKI_TEST_INSTANCES_DIR"/<ticket>-test/xwiki-platform-distribution-*-<version> \
+  "$INSTANCES"/<ticket>-test/xwiki-platform-distribution-*-<version> \
   xwiki-platform-core/.../xwiki-platform-index-tree-webjar HEAD
 ```
 
@@ -199,19 +247,22 @@ the crop until the nearest landmark is inside it, or add asymmetric padding towa
 (`{leftPad: 260, topPad: 120}`); `maxHeight` caps the clip while holding the element's bottom edge
 in frame, for when the landmarks sit above it.
 
-For a fixture needing a logged-in session, use the `xwiki-login` helper — `curl` fails CSRF checks
-on form POSTs even with a scraped `form_token`, while a real browser session reads the token live
-off the rendered page:
+For a fixture that needs a logged-in view, send HTTP Basic credentials on every request of the
+browser context — a local instance accepts them on `/bin/` pages as well as on REST, so no login
+form is involved. Playwright's `httpCredentials` does not do this: it answers a 401 challenge, and
+a guest-readable page never sends one. Any page or object the fixture has to create beforehand is a
+REST write, per `xwiki-rest-api`. On the Docker "before" instance the credentials are
+`superadmin:system`.
 
 ```js
-const { login } = require(process.env.XWIKI_CAPTURE_SKILL + '/xwiki-login');
-await login(page);   // reads XWIKI_BASE_URL, XWIKI_ADMIN_USER, XWIKI_ADMIN_PASS
+const context = await browser.newContext({ extraHTTPHeaders: {
+  Authorization: 'Basic ' + Buffer.from('Admin:admin').toString('base64') } });
 ```
 
 ## 4. Run both states, then restore
 
-Step 3 runs three times: **after** (`HEAD` → `after.png`), **before** (`<fix-commit>~1` →
-`before.png`), then **restore** (`HEAD` again, so the instance you leave behind matches the
+Step 3 runs three times: **after** (`HEAD` → `$CAPTURE_DIR/after.png`), **before**
+(`<fix-commit>~1` → `$CAPTURE_DIR/before.png`), then **restore** (`HEAD` again, so the instance you leave behind matches the
 branch — do not skip this). If the fix is not committed, use `HEAD` for both and ask the user to
 commit first, per the git-safety rule above.
 

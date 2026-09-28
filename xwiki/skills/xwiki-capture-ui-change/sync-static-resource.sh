@@ -10,8 +10,8 @@
 # Neither a rebuild nor a restart is needed: the copied file is read off disk on the next request,
 # so a before/after swap of one of these costs seconds rather than a full module build.
 #
-# This is NOT for xar-packaged wiki pages (use setup-xar-instance.sh) or jar-packaged classes
-# (use setup-instance.sh) - it's for plain files that ship as-is, e.g. xwiki-platform-web-war's
+# This is NOT for xar-packaged wiki pages (use the xwiki-deploy-extension skill) or jar-packaged
+# classes (use setup-instance.sh) - it's for plain files that ship as-is, e.g. xwiki-platform-web-war's
 # resources/uicomponents/**, or the flamingo skin's templates in
 # xwiki-platform-flamingo-skin-resources (a `pom`-packaged module).
 #

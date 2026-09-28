@@ -53,11 +53,11 @@ complete every section meaningfully:
     wrong. Usually you can just screenshot the bug on a running instance before applying the fix.
   - Only when the branch can **no longer produce** that "before" — the fix is already in the
     working tree — and the difference is **too subtle to see in a single screenshot** (a corner
-    radius, a 2px alignment shift, a colour), the `xwiki-capture-ui-change` skill builds and
-    deploys the pre-fix code to capture it. It costs a Maven build and two instance restarts, so
-    **never invoke it on your own initiative: propose it, state the cost, and wait for the user's
-    explicit approval.** If they decline, ship the "after" screenshot alone and say in the PR what
-    the before looked like.
+    radius, a 2px alignment shift, a colour), the `xwiki-capture-ui-change` skill captures it on
+    the released version's Docker image or by deploying the pre-fix code. It costs minutes to tens
+    of minutes, so **never invoke it on your own initiative: propose it, state the cost, and wait
+    for the user's explicit approval.** If they decline, ship the "after" screenshot alone and say
+    in the PR what the before looked like.
 - **Executed Tests** — how the change was validated (the `mvn` commands run). Especially important
   for regression fixes.
 - **Expected merging strategy** — `Prefers squash: Yes`, and the `Backport on branches:` bullet

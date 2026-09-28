@@ -144,7 +144,7 @@ still missing to the user instead of guessing it.
 | Patches | `fixVersions` if the fix isn't released yet ("will be fixed in…"); the actual released versions + patch commit once it is |
 | Workarounds | From the JIRA description if a mitigation is mentioned, else "no known workaround other than upgrading" |
 | References | The JIRA issue URL, plus the fix commit's SHA/URL — use an explicit placeholder such as `[commit SHA once merged]` until the fix actually lands, matching the Patches row below |
-| Credit / Attribution | `reporter`, or a named security researcher from the description — **ask the user to confirm the reporter consents to be credited** before naming them, and note that a non-committer reporter needs adding as a collaborator on the draft |
+| Credit / Attribution | `reporter`, or a named security researcher from the description — **ask the user to confirm the reporter consents to be credited** before naming them, and note that a non-committer reporter needs adding as a collaborator on the draft. Credit type (GitHub's definitions): `finder` for the person who discovered the vulnerability, also when they reported it themselves; `reporter` only for someone who passed on a finding that isn't theirs |
 
 CWE: pick the closest match from https://cwe.mitre.org/data/index.html — this is a per-vulnerability
 judgment call, not something to default without reasoning about the actual flaw (e.g. broken access
@@ -275,11 +275,20 @@ Drafting the text is safe to do proactively; actually creating the GitHub Securi
 repo-visible action (visible to all org owners immediately) and must be explicitly requested, not
 assumed. When the user asks for that step:
 
-- Create it via `gh api repos/<owner>/<repo>/security-advisories -X POST -f ...` or point the user to
-  the GitHub UI flow linked from the template section (both are described in
+- Create it via `gh api repos/<owner>/<repo>/security-advisories --method POST --input <payload.json>`
+  (build the JSON with `jq`: `vulnerabilities` and `credits` are arrays of objects, which `-f`
+  can't express) or point the user to the GitHub UI flow linked from the template section (both
+  are described in
   https://docs.github.com/en/code-security/security-advisories/repository-security-advisories/creating-a-repository-security-advisory).
+  Without credentials (e.g. in a container), write a small script the user reviews and runs on
+  their machine: the values as variables at the top, a dry run printing the payload by default.
 - Add the **`XWiki/Security`** GitHub team as a collaborator on the draft — the policy page calls
-  this out explicitly as an easy thing to forget.
+  this out explicitly as an easy thing to forget. Its slug is **`security`**. The create request
+  rejects `collaborating_teams` ("not a permitted key", HTTP 422), so set it with a second request
+  on the created advisory:
+  `gh api repos/<owner>/<repo>/security-advisories/<ghsa_id> --method PATCH --input -` with
+  `{"collaborating_teams": ["security"]}`. For `xwiki-contrib`, check the slug of its Security team
+  with `gh api orgs/xwiki-contrib/teams --jq '.[].slug'`.
 - Add a link to the draft advisory back on the JIRA issue (a normal comment/field edit — safe since
   the issue is already restricted).
 - Do **not** merge any fix through the advisory's temporary private fork via the GitHub UI — that

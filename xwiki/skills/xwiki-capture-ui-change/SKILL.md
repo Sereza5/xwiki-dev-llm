@@ -35,10 +35,10 @@ The two file-copy paths below are the exception — seconds, no build — but st
 ## Never write to git in the repo under comparison
 
 This skill only ever *reads* git state. It must never run `git commit`, `git add`, `git push`,
-`git checkout <branch>` or `--amend` against the repo the user is working in. The setup scripts
-cover both cases without committing: pass `HEAD` to build the working tree exactly as it sits,
-uncommitted changes and all, or a commit-ish to build it in their own throwaway sparse worktree
-(auto-cleaned). If the fix is not committed yet, that is **not** a reason to commit it — use `HEAD`
+`git checkout <branch>` or `--amend` against the repo the user is working in. The jar route of
+step 3 covers both cases without committing: `HEAD` builds the working tree exactly as it sits,
+uncommitted changes and all, and any other commit-ish is built in a throwaway worktree removed
+afterwards. If the fix is not committed yet, that is **not** a reason to commit it — use `HEAD`
 for the "after". An agent following an earlier draft of this procedure amended the user's own
 commit trying to "make the before/after refs work".
 
@@ -88,8 +88,7 @@ runs with a well-known `superadmin` password. Three things about the image are n
   privilege XWiki's schema migration needs, and a first start that fails on it leaves a
   half-created schema behind: recreate both containers rather than restarting one.
 - **It serves XWiki at the root context:** `http://localhost:8089`, with no `/xwiki`. Keep that
-  in its own `BEFORE_URL`; `XWIKI_BASE_URL` stays the branch's instance, which `setup-instance.sh`
-  waits on.
+  in its own `BEFORE_URL`; `XWIKI_BASE_URL` stays the branch's instance, which step 0 waits on.
 - **It starts as an empty wiki** that sends every request, REST included, to the Distribution
   Wizard. Skip the wizard: enable `superadmin`, turn off the wizard's automatic start, restart, and
   install the flavor as `superadmin:system` with `xwiki-deploy-extension`'s `installjobrequest.xml`,
@@ -129,13 +128,15 @@ ls "$INSTANCES"                                                 # something to c
 ls ~/.cache/ms-playwright   # else npm i playwright && npx playwright install chromium
 ```
 
-`setup-instance.sh` stops and restarts the instance it deploys into, so check *whose* instance is
-on the port first. **Never stop an XWiki instance this session did not start** — the rule
-`xwiki-build` states for Docker ITs applies here unchanged. If nothing is listening, start one and
-wait for it (~40s); a capture against a half-started Jetty fails in confusing ways:
+The jar route stops and restarts the instance it deploys into, so check *whose* instance is on the
+port first. **Never stop an XWiki instance this session did not start** — the rule `xwiki-build`
+states for Docker ITs applies here unchanged. If nothing is listening, start one and wait for it
+(~40s); a capture against a half-started Jetty fails in confusing ways. `setsid` takes the JVM out
+of the shell's session, without which a tool harness waits on the server for as long as it lives
+(it is Linux-only; on macOS a plain `nohup … &` is enough):
 
 ```bash
-(cd "$INSTANCE_DIR" && ./start_xwiki.sh > "$INSTANCE_DIR/xwiki-start.log" 2>&1 &)
+(cd "$INSTANCE_DIR" && setsid nohup ./start_xwiki.sh < /dev/null > xwiki-start.log 2>&1 &)
 UP=""
 for i in $(seq 1 60); do
   curl -sf -o /dev/null "$XWIKI_BASE_URL/bin/view/Main/WebHome" && { UP=1; break; }
@@ -144,8 +145,8 @@ done
 [ -n "$UP" ] && echo up || echo "not up after 2min, check $INSTANCE_DIR/xwiki-start.log"
 ```
 
-Every path here needs a running instance, including the file-copy ones. An instance you started is
-yours to stop; one you found is not.
+Stop it with `(cd "$INSTANCE_DIR" && ./stop_xwiki.sh)`. Every path here needs a running instance,
+including the file-copy ones. An instance you started is yours to stop; one you found is not.
 
 ## 1. Pick the deploy path from the module's packaging
 
@@ -155,7 +156,7 @@ grep -m1 '<packaging>' path/to/module/pom.xml
 
 | Packaging | Path | Build? Restart? |
 | --- | --- | --- |
-| `jar`, `webjar`, or absent | `setup-instance.sh` — builds at a ref, swaps the jar in `WEB-INF/lib` | yes, both |
+| `jar`, `webjar`, or absent | the jar route of step 3 — builds at a ref, swaps the jar in `WEB-INF/lib` | yes, both |
 | `xar` | follow **`xwiki-deploy-extension`** (REST job API); its uninstall-then-reinstall step is what the second state hits | build only |
 | static CSS/JS under `webapps/xwiki/resources/` | `sync-static-resource.sh` | neither |
 | `pom` resources-only (skin `.vm`/`.less`) | `sync-static-resource.sh --target-root skins` | neither |
@@ -205,34 +206,35 @@ console.log(await page.evaluate(() => document.querySelector('#globalsearch').ou
 
 ## 3. Deploy and capture one state
 
-Run this once per state. Which script comes from the table in step 1.
+Run this once per state, with the deploy route the table in step 1 picked.
+
+**The jar route** is three steps other skills already own, for `REF=HEAD` or any commit-ish:
+
+1. **Build** at `REF` — the working tree itself for `HEAD`, otherwise a throwaway worktree, as
+   `xwiki-backport` makes one. Build per `xwiki-build`: `xmvn` for the JDK the branch targets
+   (these are old commits, the likeliest to target an older Java), and a `-legacy` module that
+   weaves the changed one rebuilt too, since its woven jar is what ships. Use `package`, never
+   `install`: an `install` of the "before" publishes the pre-fix jar into the shared `~/.m2` as the
+   current SNAPSHOT. A first build can outlast a tool harness's per-command ceiling, so run it in
+   the background and wait on its output.
+2. **Swap** the jar, per `xwiki-deploy-extension` step 0: a core extension is replaced in place in
+   `WEB-INF/lib`, under its own file name. No file of that name there means the module does not
+   ship as that jar — find the one holding the changed class before going further.
+3. **Restart** the instance, with step 0's stop and start, then remove the worktree.
 
 ```bash
-"$XWIKI_CAPTURE_SKILL"/setup-instance.sh \
-  --verify 'tree-webjar:META-INF/resources/webjars/*/finder.js:xwiki-icon' \
-  "$INSTANCE_DIR" \
-  xwiki-platform-core/.../xwiki-platform-index-tree-webjar HEAD
+MODULE=xwiki-platform-core/.../xwiki-platform-index-tree-webjar   # relative to the repo root
+SRC=.; [ "$REF" = HEAD ] || { SRC="$WORK/ref-worktree"; git worktree add --detach "$SRC" "$REF"; }
+(cd "$SRC/$MODULE" && xmvn package -B -ntp -DskipTests)      # mvn where xmvn is not installed
+cp "$SRC/$MODULE"/target/<artifactId>-<version>.jar "$INSTANCE_DIR"/webapps/xwiki/WEB-INF/lib/
+(cd "$INSTANCE_DIR" && ./stop_xwiki.sh)   # then step 0's start and wait
+[ "$SRC" = . ] || git worktree remove --force "$SRC"
 ```
 
-**Always pass `--verify jarHint:pathInJar:pattern`** so a wrong or failed swap fails loudly instead
-of leaving a stale jar deployed. Run any script with `--help` for its full flags.
-
-A first-time module build can exceed the 10-minute ceiling most tool harnesses put on one command,
-so launch it detached and wait on its log rather than in the foreground:
-
-```bash
-nohup "$XWIKI_CAPTURE_SKILL"/setup-instance.sh ... > /dev/null 2>&1 &
-for i in $(seq 1 240); do
-  grep -qE "instance is up|WARNING: instance did not|VERIFY FAILED|ERROR|FAILED|FAILURE" \
-    "$INSTANCE_DIR/setup-instance.log" 2>/dev/null && break
-  sleep 5
-done
-tail -5 "$INSTANCE_DIR/setup-instance.log"   # which marker it hit, or nothing if it died early
-```
-
-**Then assert the change from the capture script too.** `--verify` proves the right *bytes* were
-deployed; it cannot prove the page renders differently, and the file-copy paths have no `--verify`
-at all. Log the exact property under comparison in both states, just before shooting:
+**Then assert the change from the capture script.** A swap can land the wrong bytes, and the page
+may render the same even when it landed the right ones; the file-copy paths have nothing to check
+the deploy with at all. Log the exact property under comparison in both states, just before
+shooting:
 
 ```js
 const info = await page.evaluate(() => {

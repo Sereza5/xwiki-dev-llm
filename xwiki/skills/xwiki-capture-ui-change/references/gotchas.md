@@ -45,10 +45,10 @@ both cheaper and better evidence than a picture.
 - `mvn install` on `xwiki-platform-legacy-oldcore` can fail with "Component registered several
   times" in `target/classes/META-INF/components.txt` after worktree builds that reuse the same
   `target/`. Use `mvn clean install` for that module.
-- **`--verify` guards against more than a script bug.** The deployed code reflects whatever is on
-  disk when the build runs, so if the checked-out commit changes underneath you mid-build - the
-  user switching branches in their IDE - the swap "succeeds" and lands the wrong code. `git log -1`
-  afterwards will not tell you what was on disk at build time.
+- **The assertion lines guard against more than a deploy bug.** The deployed code reflects whatever
+  is on disk when the build runs, so if the checked-out commit changes underneath you mid-build -
+  the user switching branches in their IDE - the swap "succeeds" and lands the wrong code. `git log
+  -1` afterwards will not tell you what was on disk at build time.
 - A branch rebased since it was opened can sit on a newer `${project.version}` than a cached test
   instance. That breaks the Extension Manager's install job for xar modules (`InstallException:
   Dependency [...] is not compatible with core extension feature [...]`), and so the

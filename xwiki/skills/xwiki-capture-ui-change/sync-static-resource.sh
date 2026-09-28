@@ -11,8 +11,8 @@
 # so a before/after swap of one of these costs seconds rather than a full module build.
 #
 # This is NOT for xar-packaged wiki pages (use the xwiki-deploy-extension skill) or jar-packaged
-# classes (use setup-instance.sh) - it's for plain files that ship as-is, e.g. xwiki-platform-web-war's
-# resources/uicomponents/**, or the flamingo skin's templates in
+# classes (use SKILL.md's jar route) - it's for plain files that ship as-is, e.g.
+# xwiki-platform-web-war's resources/uicomponents/**, or the flamingo skin's templates in
 # xwiki-platform-flamingo-skin-resources (a `pom`-packaged module).
 #
 # Usage:
@@ -30,7 +30,12 @@
 #                    uicomponents/viewers/comments.css, or flamingo/previewactions.vm with
 #                    --target-root skins
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+# Print this script's own header comment as its usage text. awk, not sed: the `\( \|$\)`
+# alternation a sed one-liner needs here is a GNU extension that BSD/macOS sed rejects.
+usage() {
+  awk 'NR>1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "$0"
+  exit "${1:-1}"
+}
 if [[ "${1:-}" == -h || "${1:-}" == --help || $# -eq 0 ]]; then usage 0; fi
 
 TARGET_ROOT="resources"

@@ -11,8 +11,8 @@ The deliverable is **the "before" screenshot** — the state your branch can no 
 because the fix is already in the working tree. Everything else here exists to reach that state
 safely. The "after" is trivial; you can shoot it at any time.
 
-That is worth a module build and two instance restarts only when **the difference is too subtle to
-see without both states in front of you**: a corner radius, a 2px alignment shift, a colour, a
+That is worth the setup below only when **the difference is too subtle to see without both states
+in front of you**: a corner radius, a 2px alignment shift, a colour, a
 wrong icon, a spacing regression. That is the CSS/usability work this pays off on.
 
 Do **not** run it for:
@@ -42,6 +42,25 @@ uncommitted changes and all, or a commit-ish to build it in their own throwaway 
 for the "after". An agent following an earlier draft of this procedure amended the user's own
 commit trying to "make the before/after refs work".
 
+## Environment, for every route below
+
+```bash
+# This skill's directory. Kimi Code: ${KIMI_SKILL_DIR}. opencode:
+# $XWIKI_LLM_HOME/xwiki/skills/xwiki-capture-ui-change.
+export XWIKI_CAPTURE_SKILL="${CLAUDE_PLUGIN_ROOT}/skills/xwiki-capture-ui-change"
+# The work directory of the org conventions, under the repo holding the fix. Test distributions are
+# reused across tickets, so they sit beside the per-ticket directories; this ticket's screenshots
+# and capture script go in its own.
+REPO="$(basename "$(git rev-parse --show-toplevel)")"
+WORK="$(node "$XWIKI_CAPTURE_SKILL/../../scripts/state-dir.mjs")/$REPO"
+INSTANCES="$WORK/test-instances"
+INSTANCE_DIR="$INSTANCES/<ticket>-test/xwiki-platform-distribution-<flavor>-<version>"
+export CAPTURE_DIR="$WORK/$(date +%F)-<ticket>-capture"; mkdir -p "$CAPTURE_DIR"
+export XWIKI_BASE_URL="${XWIKI_BASE_URL:-http://localhost:8080/xwiki}"   # the branch's instance
+```
+
+Tell the developer the `$CAPTURE_DIR` path once, so they know where the screenshots are.
+
 ## Cheapest first: is the "before" already released?
 
 When the bug is in a release — the issue's Affects Version says so — shoot the "before" on that
@@ -57,48 +76,49 @@ docker network create xwiki-before
 docker run -d --name xwiki-before-db --net xwiki-before -e MYSQL_ROOT_PASSWORD=xwiki \
   -e MYSQL_DATABASE=xwiki mysql:8.4 --character-set-server=utf8mb4 \
   --collation-server=utf8mb4_bin --explicit-defaults-for-timestamp=1
-docker run -d --name xwiki-before --net xwiki-before -p 8089:8080 -e DB_HOST=xwiki-before-db \
+docker run -d --name xwiki-before --net xwiki-before -p 127.0.0.1:8089:8080 \
+  -e DB_HOST=xwiki-before-db \
   -e DB_USER=root -e DB_PASSWORD=xwiki -e DB_DATABASE=xwiki "xwiki:$V-mysql-tomcat"
 ```
 
-Pick a host port nothing listens on (8089 here). Three things about the image are not obvious:
+Pick a host port nothing listens on (8089 here), and keep it bound to `127.0.0.1`: the instance
+runs with a well-known `superadmin` password. Three things about the image are not obvious:
 
 - **XWiki connects as the database root user.** A `MYSQL_USER` account lacks the `PROCESS`
   privilege XWiki's schema migration needs, and a first start that fails on it leaves a
   half-created schema behind: recreate both containers rather than restarting one.
-- **It serves XWiki at the root context:** `export XWIKI_BASE_URL=http://localhost:8089`, with no
-  `/xwiki`.
+- **It serves XWiki at the root context:** `http://localhost:8089`, with no `/xwiki`. Keep that
+  in its own `BEFORE_URL`; `XWIKI_BASE_URL` stays the branch's instance, which `setup-instance.sh`
+  waits on.
 - **It starts as an empty wiki** that sends every request, REST included, to the Distribution
   Wizard. Skip the wizard: enable `superadmin`, turn off the wizard's automatic start, restart, and
-  install the flavor with `xwiki-deploy-extension`'s install job as `superadmin:system` — extension
-  `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki`, version `$V`, namespace
-  `wiki:xwiki`. The job downloads from extensions.xwiki.org and takes a couple of minutes.
+  install the flavor as `superadmin:system` with `xwiki-deploy-extension`'s `installjobrequest.xml`,
+  filled with extension `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki` and
+  version `$V` (its namespace `wiki:xwiki` is already right). The job downloads from
+  extensions.xwiki.org and takes a couple of minutes.
 
 ```bash
 docker exec xwiki-before sh -c 'W=/usr/local/tomcat/webapps/ROOT/WEB-INF
   sed -i "s/^# xwiki.superadminpassword=system/xwiki.superadminpassword=system/" $W/xwiki.cfg
   echo distribution.automaticStartOnMainWiki=false >> $W/xwiki.properties'
 docker restart xwiki-before
-until curl -sf -o /dev/null -u superadmin:system "$XWIKI_BASE_URL/rest/wikis/xwiki"; do sleep 3; done
+BEFORE_URL=http://localhost:8089
+UP=""
+for i in $(seq 1 60); do
+  curl -sf -o /dev/null -u superadmin:system "$BEFORE_URL/rest/wikis/xwiki" && { UP=1; break; }
+  sleep 3
+done
+[ -n "$UP" ] || echo "not up after 3min, check: docker logs xwiki-before"
+curl -s -u superadmin:system -X PUT -H "Content-Type: text/xml" \
+  --upload-file installjobrequest.xml "$BEFORE_URL/rest/jobs?jobType=install&async=false" \
+  | grep -o '<state>[^<]*</state>'   # expect FINISHED
 ```
 
-Then pick the fixture (step 2) and shoot it with the capture script of step 3, sending
-`superadmin:system` as the Basic credentials. Remove the containers when done:
-`docker rm -f xwiki-before xwiki-before-db && docker network rm xwiki-before`.
+Then pick the fixture (step 2) and shoot it with the capture script of step 3, against
+`$BEFORE_URL` and with `superadmin:system` as the Basic credentials. Remove the containers when
+done: `docker rm -f xwiki-before xwiki-before-db && docker network rm xwiki-before`.
 
-## 0. Environment, and an instance to reuse
-
-```bash
-# This skill's directory. Kimi Code: ${KIMI_SKILL_DIR}. opencode:
-# $XWIKI_LLM_HOME/xwiki/skills/xwiki-capture-ui-change.
-export XWIKI_CAPTURE_SKILL="${CLAUDE_PLUGIN_ROOT}/skills/xwiki-capture-ui-change"
-# The work directory of the org conventions. Test distributions are reused across tickets, so they
-# sit beside the per-ticket directories; this ticket's screenshots and capture script go in its own.
-WORK="$(node "$XWIKI_CAPTURE_SKILL/../../scripts/state-dir.mjs")/xwiki-platform"
-INSTANCES="$WORK/test-instances"
-export CAPTURE_DIR="$WORK/$(date +%F)-<ticket>-capture"; mkdir -p "$CAPTURE_DIR"
-export XWIKI_BASE_URL="${XWIKI_BASE_URL:-http://localhost:8080/xwiki}"
-```
+## 0. An instance to reuse
 
 Prerequisites: a prebuilt XWiki jetty+hsqldb distribution (building one takes 30-60+ minutes, so
 copy an existing one), and Playwright with Chromium. Check before starting, not three steps in:
@@ -190,7 +210,7 @@ Run this once per state. Which script comes from the table in step 1.
 ```bash
 "$XWIKI_CAPTURE_SKILL"/setup-instance.sh \
   --verify 'tree-webjar:META-INF/resources/webjars/*/finder.js:xwiki-icon' \
-  "$INSTANCES"/<ticket>-test/xwiki-platform-distribution-*-<version> \
+  "$INSTANCE_DIR" \
   xwiki-platform-core/.../xwiki-platform-index-tree-webjar HEAD
 ```
 
@@ -229,14 +249,15 @@ stronger evidence than a screenshot pair that merely *looks* different. **Addres
 name, never by position** — a positional selector is the classic way to read a value that never
 changes, which looks exactly like a failed deploy (`references/gotchas.md`). On the file-copy paths
 also grep the instance, since `sync-static-resource.sh` prints `synced` unconditionally:
-`grep -c btn-group-last "$INSTANCE"/webapps/xwiki/skins/flamingo/previewactions.vm`.
+`grep -c btn-group-last "$INSTANCE_DIR"/webapps/xwiki/skins/flamingo/previewactions.vm`.
 
 Then shoot. Crop to the element, trying each selector in turn, so a fix that adds a wrapper does
 not break one state's selector:
 
 ```js
 const { screenshotElement } = require(process.env.XWIKI_CAPTURE_SKILL + '/element-screenshot');
-await screenshotElement(page, ['.new-wrapper', '.old-bare-element'], `${state}.png`);
+await screenshotElement(page, ['.new-wrapper', '.old-bare-element'],
+  `${process.env.CAPTURE_DIR}/${state}.png`);
 ```
 
 Take the **same crop in both states**, at the same viewport — that is what lets a reader compare
@@ -262,9 +283,9 @@ const context = await browser.newContext({ extraHTTPHeaders: {
 ## 4. Run both states, then restore
 
 Step 3 runs three times: **after** (`HEAD` → `$CAPTURE_DIR/after.png`), **before**
-(`<fix-commit>~1` → `$CAPTURE_DIR/before.png`), then **restore** (`HEAD` again, so the instance you leave behind matches the
-branch — do not skip this). If the fix is not committed, use `HEAD` for both and ask the user to
-commit first, per the git-safety rule above.
+(`<fix-commit>~1` → `$CAPTURE_DIR/before.png`), then **restore** (`HEAD` again, so the instance you
+leave behind matches the branch — do not skip this). If the fix is not committed, use `HEAD` for
+both and ask the user to commit first, per the git-safety rule above.
 
 **The assertion log lines are the authority**, and they need nothing installed. If they are
 identical, stop: the cause is a deploy that did not land or a selector on the wrong node, not a
@@ -276,16 +297,15 @@ for it: a live instance's screenshots are not byte-reproducible, so it reports s
 and proves nothing when it matches.
 
 ```bash
-command -v compare >/dev/null && compare -metric AE before.png after.png null: 2>&1
+command -v compare >/dev/null && compare -metric AE "$CAPTURE_DIR"/{before,after}.png null: 2>&1
 ```
 
 If you do measure, there is no useful absolute threshold; capture the *same* state twice and
 measure that pair to get your noise floor. **A zero count is not automatically a bug** — plenty of
 worthwhile fixes are semantic (a `<button>` becoming an `<a href>`, an `aria-label` appearing).
-If the assertions differ
-and the pixels do not, the *fixture* is the problem: find an interaction state where the two
-diverge — keyboard focus is the reliable one — and say so in the caption rather than implying a
-visual regression that was never there.
+If the assertions differ and the pixels do not, the *fixture* is the problem: find an interaction
+state where the two diverge — keyboard focus is the reliable one — and say so in the caption rather
+than implying a visual regression that was never there.
 
 ## 5. Deliver: attach to the JIRA issue, reference from the PR body
 

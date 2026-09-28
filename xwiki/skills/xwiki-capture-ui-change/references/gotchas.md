@@ -22,6 +22,10 @@ both cheaper and better evidence than a picture.
   check a component's config defaults and `shortcut.add(...)` keys, before concluding the fixture
   is broken.
 
+- **Opening an edit URL locks the page** for that user. A later capture of the same page as another
+  user shoots the "This page is currently locked by …" warning instead of the editor. Shoot both
+  states as the same user, or cancel the edit (`bin/cancel/<Space>/<Page>`) before switching.
+
 ## Selectors, crops and diffs
 
 - **Why positional selectors bite in the skin templates.** `#editActionButton` emits a hidden

@@ -57,6 +57,13 @@ INSTANCES="$WORK/test-instances"
 INSTANCE_DIR="$INSTANCES/<ticket>-test/xwiki-platform-distribution-<flavor>-<version>"
 export CAPTURE_DIR="$WORK/$(date +%F)-<ticket>-capture"; mkdir -p "$CAPTURE_DIR"
 export XWIKI_BASE_URL="${XWIKI_BASE_URL:-http://localhost:8080/xwiki}"   # the branch's instance
+# Browser: the agent-browser skill, in one session for the whole capture. Shots go through
+# xwiki-doc-writing's docshot.sh, which reads AB_SESSION and SHOTS.
+export AB_SESSION=capture SHOTS="$CAPTURE_DIR"
+DOCSHOT="$XWIKI_CAPTURE_SKILL/../xwiki-doc-writing/tools/docshot.sh"
+agent-browser --session capture set viewport 1440 900 1
+agent-browser --session capture set headers \
+  "{\"Authorization\": \"Basic $(printf Admin:admin | base64)\"}"
 ```
 
 Tell the developer the `$CAPTURE_DIR` path once, so they know where the screenshots are.
@@ -82,7 +89,7 @@ docker run -d --name xwiki-before --net xwiki-before -p 127.0.0.1:8089:8080 \
 ```
 
 Pick a host port nothing listens on (8089 here), and keep it bound to `127.0.0.1`: the instance
-runs with a well-known `superadmin` password. Three things about the image are not obvious:
+runs with a well-known `superadmin` password. Four things about the image are not obvious:
 
 - **XWiki connects as the database root user.** A `MYSQL_USER` account lacks the `PROCESS`
   privilege XWiki's schema migration needs, and a first start that fails on it leaves a
@@ -95,6 +102,11 @@ runs with a well-known `superadmin` password. Three things about the image are n
   filled with extension `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki` and
   version `$V` (its namespace `wiki:xwiki` is already right). The job downloads from
   extensions.xwiki.org and takes a couple of minutes.
+- **The wizard also creates `XWiki.Admin`**, and the flavor's pages name it as their author.
+  Skipped, it does not exist, so every script those pages hold fails to render ("the execution of
+  the [velocity] script macro is not allowed … check the rights of its last author"). Create it
+  with admin and programming rights, after which `Admin:admin` works here as on the branch's
+  instance and `superadmin` is only needed for this setup.
 
 ```bash
 docker exec xwiki-before sh -c 'W=/usr/local/tomcat/webapps/ROOT/WEB-INF
@@ -111,21 +123,33 @@ done
 curl -s -u superadmin:system -X PUT -H "Content-Type: text/xml" \
   --upload-file installjobrequest.xml "$BEFORE_URL/rest/jobs?jobType=install&async=false" \
   | grep -o '<state>[^<]*</state>'   # expect FINISHED
+P="$BEFORE_URL/rest/wikis/xwiki/spaces/XWiki/pages"
+X=(-s -o /dev/null -w '%{http_code}\n' -u superadmin:system -H "Content-Type: application/xml")
+curl "${X[@]}" -X PUT "$P/Admin" --data '<page xmlns="http://www.xwiki.org"><title>Admin</title>
+  <content>{{include reference="XWiki.XWikiUserSheet"/}}</content></page>'
+curl "${X[@]}" -X POST "$P/Admin/objects" --data '<object xmlns="http://www.xwiki.org">
+  <className>XWiki.XWikiUsers</className><property name="first_name"><value>Admin</value></property>
+  <property name="password"><value>admin</value></property>
+  <property name="active"><value>1</value></property></object>'
+curl "${X[@]}" -X POST "$P/XWikiPreferences/objects" --data '<object xmlns="http://www.xwiki.org">
+  <className>XWiki.XWikiGlobalRights</className>
+  <property name="users"><value>XWiki.Admin</value></property>
+  <property name="levels"><value>admin,programming</value></property>
+  <property name="allow"><value>1</value></property></object>'   # each: 201
 ```
 
-Then pick the fixture (step 2) and shoot it with the capture script of step 3, against
-`$BEFORE_URL` and with `superadmin:system` as the Basic credentials. Remove the containers when
-done: `docker rm -f xwiki-before xwiki-before-db && docker network rm xwiki-before`.
+Then pick the fixture (step 2) and shoot it as step 3 does, against `$BEFORE_URL`. Remove the
+containers when done: `docker rm -f xwiki-before xwiki-before-db && docker network rm xwiki-before`.
 
 ## 0. An instance to reuse
 
 Prerequisites: a prebuilt XWiki jetty+hsqldb distribution (building one takes 30-60+ minutes, so
-copy an existing one), and Playwright with Chromium. Check before starting, not three steps in:
+copy an existing one), and the `agent-browser` skill. Check before starting, not three steps in:
 
 ```bash
 pgrep -af 'STOP.KEY=xwiki'; lsof -nP -iTCP:8080 -sTCP:LISTEN   # something already running?
 ls "$INSTANCES"                                                 # something to copy?
-ls ~/.cache/ms-playwright   # else npm i playwright && npx playwright install chromium
+agent-browser --version                                         # else load its skill to install
 ```
 
 The jar route stops and restarts the instance it deploys into, so check *whose* instance is on the
@@ -198,10 +222,12 @@ grep -rl --include='*.xml' '<classType>com.xpn.xwiki.objects.classes.NumberClass
 ```
 
 **Dump the fixture's container before writing any selector** — assuming one exists is the fastest
-way to burn a 30-second Playwright timeout:
+way to shoot the wrong thing, and the edit page of a broken wiki and of a working one have
+different DOMs:
 
-```js
-console.log(await page.evaluate(() => document.querySelector('#globalsearch').outerHTML));
+```bash
+agent-browser --session capture open "$XWIKI_BASE_URL/bin/view/Main/WebHome"
+agent-browser --session capture eval "document.querySelector('#globalsearch').outerHTML"
 ```
 
 ## 3. Deploy and capture one state
@@ -236,14 +262,12 @@ may render the same even when it landed the right ones; the file-copy paths have
 the deploy with at all. Log the exact property under comparison in both states, just before
 shooting:
 
-```js
-const info = await page.evaluate(() => {
-  const el = document.querySelector('#backtoedit input[name="action_saveandcontinue"]');
-  return { cls: el.className, radius: getComputedStyle(el).borderTopRightRadius };
-});
-console.log(state, JSON.stringify(info));
-// before {"cls":"btn btn-default","radius":"0px"}
-// after  {"cls":"btn btn-default btn-group-last","radius":"7px"}
+```bash
+agent-browser --session capture eval "(() => {
+  const el = document.querySelector('#backtoedit input[name=action_saveandcontinue]');
+  return el.className + ' ' + getComputedStyle(el).borderTopRightRadius; })()"
+# before "btn btn-default 0px"
+# after  "btn btn-default btn-group-last 7px"
 ```
 
 Two lines like that are the proof the states differ, they cost no vision tokens, and they are
@@ -253,34 +277,37 @@ changes, which looks exactly like a failed deploy (`references/gotchas.md`). On 
 also grep the instance, since `sync-static-resource.sh` prints `synced` unconditionally:
 `grep -c btn-group-last "$INSTANCE_DIR"/webapps/xwiki/skins/flamingo/previewactions.vm`.
 
-Then shoot. Crop to the element, trying each selector in turn, so a fix that adds a wrapper does
-not break one state's selector:
+Then shoot, with `docshot.sh` and no red box: that is a plain crop of an `x,y,w,h` viewport region,
+saved at its own width with no resampling. Compute the region **once**, in the first state, and
+reuse it for the second — the **same crop in both states**, at the same viewport, is what lets a
+reader compare them. Try each selector in turn, so a fix that adds a wrapper does not break one
+state's selector, and pad towards the chrome:
 
-```js
-const { screenshotElement } = require(process.env.XWIKI_CAPTURE_SKILL + '/element-screenshot');
-await screenshotElement(page, ['.new-wrapper', '.old-bare-element'],
-  `${process.env.CAPTURE_DIR}/${state}.png`);
+```bash
+REGION=$(agent-browser --session capture eval "(() => {
+  for (const s of ['.new-wrapper', '.old-bare-element']) {
+    const e = document.querySelector(s);
+    if (!e) continue;
+    const r = e.getBoundingClientRect(), p = {t: 120, r: 8, b: 8, l: 260};
+    return [r.left - p.l, r.top - p.t, r.width + p.l + p.r, r.height + p.t + p.b]
+      .map(v => Math.max(0, Math.round(v))).join(',');
+  }
+  throw new Error('no selector matched'); })()" | tr -d '"')
+[ -n "$REGION" ] || echo "no region: the eval failed, and \$( | tr) hides its status"
+"$DOCSHOT" "$state" "$(cut -d, -f3 <<<"$REGION")" "$REGION"   # -> $CAPTURE_DIR/$state.png
 ```
 
-Take the **same crop in both states**, at the same viewport — that is what lets a reader compare
-them. Include enough recognizable chrome (a page title, a toolbar, a panel header) that a reader
+Include enough recognizable chrome (a page title, a toolbar, a panel header) that a reader
 unfamiliar with the feature can tell where they are looking; a crop tight enough to show only the
-changed pixels proves *what* changed but not *where*. Where the element alone is too tight, widen
-the crop until the nearest landmark is inside it, or add asymmetric padding towards the chrome
-(`{leftPad: 260, topPad: 120}`); `maxHeight` caps the clip while holding the element's bottom edge
-in frame, for when the landmarks sit above it.
+changed pixels proves *what* changed but not *where*. Widen the padding until the nearest landmark
+is inside the region. The region is in viewport pixels, so never scroll to reach the element:
+enlarge the viewport instead (`xwiki-doc-writing`'s `tools/README.md` has why).
 
-For a fixture that needs a logged-in view, send HTTP Basic credentials on every request of the
-browser context — a local instance accepts them on `/bin/` pages as well as on REST, so no login
-form is involved. Playwright's `httpCredentials` does not do this: it answers a 401 challenge, and
-a guest-readable page never sends one. Any page or object the fixture has to create beforehand is a
-REST write, per `xwiki-rest-api`. On the Docker "before" instance the credentials are
-`superadmin:system`.
-
-```js
-const context = await browser.newContext({ extraHTTPHeaders: {
-  Authorization: 'Basic ' + Buffer.from('Admin:admin').toString('base64') } });
-```
+The session is logged in through the `Authorization` header the environment block set: a local
+instance accepts HTTP Basic credentials on `/bin/` pages as well as on REST, so no login form is
+involved. `set credentials` would not do: it answers a 401 challenge, and a guest-readable page
+never sends one. Any page or object the fixture has to create beforehand is a REST write, per
+`xwiki-rest-api`.
 
 ## 4. Run both states, then restore
 

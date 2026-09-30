@@ -12,7 +12,8 @@ tool, never print it:
     set -a; . ~/.xwiki-credentials; set +a; python3 docpages.py save
 
 Environment:
-    XWIKI_USER, XWIKI_PASSWORD   required
+    XWIKI_USER, XWIKI_PASSWORD   required to write; a read without them goes out as Guest, which is
+                                 enough for the public documentation (`xwiki-doc-export` reads that way)
     XWIKI_BASE                   REST root of the main wiki (default www.xwiki.org's `xwiki`)
 """
 import base64
@@ -35,10 +36,14 @@ _OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_JAR))
 _token = None
 
 
-def _auth():
+def _auth(required=True):
+    """The Basic header, or None for an anonymous read. A write always needs credentials: sent as
+    Guest it would fail on the rights check, after the form-token dance, with a less clear error."""
     try:
         user, password = os.environ['XWIKI_USER'], os.environ['XWIKI_PASSWORD']
     except KeyError:
+        if not required:
+            return None
         raise SystemExit('XWIKI_USER / XWIKI_PASSWORD are not set — source your credentials file '
                          'inside the command, e.g. `set -a; . ~/.xwiki-credentials; set +a; …`')
     return 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode()
@@ -62,7 +67,10 @@ def viewurl(ref):
 
 def call(url, method='GET', data=None, ctype=None, token=False, accept='application/json'):
     global _token
-    headers = {'User-Agent': _UA, 'Authorization': _auth()}
+    headers = {'User-Agent': _UA}
+    auth = _auth(required=token)
+    if auth:
+        headers['Authorization'] = auth
     if accept:
         headers['Accept'] = accept
     if ctype:

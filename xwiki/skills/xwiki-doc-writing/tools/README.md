@@ -14,7 +14,11 @@ was added the first time it produced a defect on a live page.
 | `docpages.py` | `lint` \| `save` \| `pin` \| `verify` over a page set held as a Python module. |
 | `docshot.sh` | Capture a screenshot at a `size` width with the mandatory red box, and check it. |
 | `checkredbox.py` | Prove each screenshot's red box is a closed rectangle. |
-| `docplan.py` | `status` \| `next` \| `start` \| `done` over a conversion's `PLAN.md`. Conversions only. |
+| `docplan.py` | `status` \| `next` \| `start` \| `done` over a conversion's `PLAN.md`. Also the plan bookkeeping of `xwiki-doc-export`. |
+
+`xwiki-doc-export/tools/docexport.py` imports `xwikidoc.py` (it reads anonymously: without
+`XWIKI_USER`/`XWIKI_PASSWORD` a read goes out as Guest, a write still refuses) and drives `docplan.py`
+with `--plan`, so check it too when changing either.
 
 **A second reason these exist: a mechanical question answered by a tool costs one turn, and answered
 by looking costs several.** A documentation task runs long — dozens of pages, hundreds of turns — and

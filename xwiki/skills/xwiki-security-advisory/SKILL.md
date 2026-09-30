@@ -282,13 +282,13 @@ assumed. When the user asks for that step:
   https://docs.github.com/en/code-security/security-advisories/repository-security-advisories/creating-a-repository-security-advisory).
   Without credentials (e.g. in a container), write a small script the user reviews and runs on
   their machine: the values as variables at the top, a dry run printing the payload by default.
-- Add the **`XWiki/Security`** GitHub team as a collaborator on the draft — the policy page calls
-  this out explicitly as an easy thing to forget. Its slug is **`security`**. The create request
-  rejects `collaborating_teams` ("not a permitted key", HTTP 422), so set it with a second request
-  on the created advisory:
+- Add the organization's **Security** GitHub team (`XWiki/Security` in `xwiki`) as a collaborator on
+  the draft — the policy page calls this out explicitly as an easy thing to forget. Its slug is
+  **`security`** in both the `xwiki` and `xwiki-contrib` organizations. The create request rejects
+  `collaborating_teams` ("not a permitted key", HTTP 422), so set it with a second request on the
+  created advisory:
   `gh api repos/<owner>/<repo>/security-advisories/<ghsa_id> --method PATCH --input -` with
-  `{"collaborating_teams": ["security"]}`. For `xwiki-contrib`, check the slug of its Security team
-  with `gh api orgs/xwiki-contrib/teams --jq '.[].slug'`.
+  `{"collaborating_teams": ["security"]}`.
 - Add a link to the draft advisory back on the JIRA issue (a normal comment/field edit — safe since
   the issue is already restricted).
 - Do **not** merge any fix through the advisory's temporary private fork via the GitHub UI — that

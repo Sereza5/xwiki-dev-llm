@@ -95,9 +95,19 @@ ReleaseNotes.Data.<Product>.<ShortVersion>.WebHome        ← ReleaseNotes.Code.
 - **A bugfix release note renders a `{{jira}}` issue list instead of the entries**, so its issues
   need no entry.
 
-**Entries belong to the version JIRA names as the Fix Version.** For a `.0` cycle that is the RC
-(`18.8.0-rc-1`), and the final release note (`18.8.0`) holds *no* entries of its own — it displays
-the RC's through aggregation. Adding entries to the final release note would duplicate them.
+**Entries belong to the version JIRA names as the Fix Version.** For a `.0` cycle that is normally
+the RC (`18.8.0-rc-1`), and the final release note (`18.8.0`) displays the RC's entries through
+aggregation, so an entry for a change shipped in the RC goes on the RC only: repeating it on the
+final would duplicate it. **The exception is a change that only made it into the final**, after the
+RC was released — its Fix Version is the final, and its entry is stored on the final release note,
+which shows it merged with the RC's (`ReleaseNotes.Data.XWiki.18\.5\.0.Entry001` is one).
+
+**A warning for administrators who upgrade is an upgrade note, not an entry.** Each release note
+has a `== Issues specific to {{velocity}}$product $version{{/velocity}} ==` section under
+"Backward Compatibility and Migration Notes", which the template fills with the placeholder
+`<issues specific to the project>`; an upgrade note is a `=== … ===` subsection of it, in the page
+content itself. Unlike an entry it can go on a **bugfix** release note too, so a change fixed on
+several branches gets the same note on each version's release note.
 
 ## The REST endpoints (since Release Notes Application 2.7)
 

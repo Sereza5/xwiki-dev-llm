@@ -57,7 +57,7 @@ Deleting the directory loses nothing that cannot be rebuilt, but the next export
 - The main session only holds the prompt paths, one reply line per subagent and the check summary, so 8 chunks cost it far less than its 30% budget.
 - Lower the chunk size if a subagent runs out of room or starts dropping markup (the check will say "N elements instead of M").
 
-**Replanning.** `plan` refuses to replace a PLAN.md with open tasks unless given `--force`. A finished plan is moved to `plans/`. Each export is its own plan: *scan → fetch → plan → tasks*.
+**Replanning.** `plan` refuses to replace a PLAN.md with open tasks unless given `--force`. A finished plan is moved to `plans/`, and its Decisions carry over to the new one. Each export is its own plan: *scan → fetch → plan → tasks*.
 
 ## The first export of `documentation/xs/user`
 

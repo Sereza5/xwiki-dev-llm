@@ -81,7 +81,8 @@ A translate task never translates in the main session:
 
 **Rules for the translation**, all written into the prompt, so do not repeat them to the subagents:
 - Translate the prose, `alt` and `title`. Code, identifiers, URLs and markup stay byte-identical.
-- UI labels use XWiki's own translation, so the book matches the screen a reader of that language sees. A label renamed upstream is offered with its older translation too, marked "(older UI)", for a page that says what the field was called before version X.
+- Translate, do not edit: nothing added or dropped. A translator writes only its own pages, never another file, even by script.
+- UI labels use XWiki's own translation, so the book matches the screen a reader of that language sees. A label renamed upstream is offered with its older translation too, marked "(older UI)", for a page that says what the field was called before version X; with none listed, such a passage quotes the English labels.
 - A recurring concept the catalogue does not cover goes into `glossary.<lang>.json`, so that later chunks and later exports reuse the same word.
 - A translator only adds to the glossary, never changes an entry: chunks run in parallel, and a changed entry leaves the pages already written with the old word. An entry that contradicts the UI is reported back, and the translate session settles it (see the task file).
 - The metadata line under each title is left in English: `build` writes it from `labels.<lang>.json`, so every page words it the same way.

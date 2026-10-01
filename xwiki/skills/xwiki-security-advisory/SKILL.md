@@ -28,9 +28,10 @@ endpoint is affected, the general attack vector, the requirements (rights, confi
 impact — but **no PoC**: no exploit request, URL, payload, parameter values or step-by-step
 reproduction, even when the JIRA issue has them (they stay in JIRA, where they're needed for the
 fix). Scanners automatically import published advisories and try the reproduction steps they
-contain. This was proposed on the forum in September 2026 and is close to agreed
-(https://forum.xwiki.org/t/security-policy-dont-provide-poc-of-vulnerability-in-advisories/18875);
-check the live Security Policy (Step 2) for the current wording.
+contain. The Security Policy requires this since October 2026: a warning in its "Security Advisory
+template and information" section, and a `/!\ Don't provide reproduction steps. /!\` line under the
+template's `### Impact` — a reminder for the author, not part of the advisory, so leave it out of
+the draft (Step 2 has the live wording).
 
 **This is a change from past practice**: many published XWiki advisories contain a PoC or the exact
 request to reproduce the vulnerability (e.g. GHSA-57q2-6cp4-9mq3 gives the URL to call). Don't take

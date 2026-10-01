@@ -5,7 +5,6 @@ summary: How XWiki rates security issues (CVSS 4) and the rule that a vulnerabil
   publicly until disclosure — obfuscated commit messages and restricted JIRA security issues.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/SecurityPolicy/
-  - https://forum.xwiki.org/t/security-policy-dont-provide-poc-of-vulnerability-in-advisories/18875
 verify: |
   Every CVSS metric value and the Critical/Major threshold are set by policy and can be refined by
   the community. Do not score from this file: read the Security Policy's "Best practices for
@@ -32,10 +31,9 @@ XWiki repos are public, so a fix can be a zero-day signpost. Until the issue is 
 - The **published advisory** carries no PoC either (no exploit request, payload or reproduction
   steps — only the affected feature, attack vector, requirements and impact), even after
   disclosure: scanners import advisories and replay their PoCs. The PoC stays in the JIRA issue.
-  This changes past practice (older advisories often have one), so past advisories are no model for
-  it; proposed in September 2026 on
-  [the forum](https://forum.xwiki.org/t/security-policy-dont-provide-poc-of-vulnerability-in-advisories/18875).
-  Drafting details: the `xwiki-security-advisory` skill.
+  The Security Policy's "Security Advisory template and information" section has required this
+  since October 2026. It changes past practice (older advisories often have one), so past
+  advisories are no model for it. Drafting details: the `xwiki-security-advisory` skill.
 
 This is why a security fix's public commit looks deliberately mundane.
 

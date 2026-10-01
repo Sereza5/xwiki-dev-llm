@@ -4,7 +4,8 @@ stability: durable
 summary: How the browser container reaches XWiki under each servlet engine and why that makes the two
   configurations exercise different networking, which engine to pick for the local loop and when the
   containerised one is mandatory, the setup-failure symptom table (a beforeAll failure is never
-  evidence about your change), and what several agents sharing one machine contend for.
+  evidence about your change), why runs leak containers and networks when ryuk cannot reach the
+  daemon, and what several agents sharing one machine contend for.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/
 ---
@@ -59,9 +60,47 @@ below. Repair the machine and re-run; do not start debugging the change.
 | `Could not start container … standalone-firefox … TimeoutException` | the Docker daemon is starved; the browser missed its wait strategy |
 | `Reached error page: about:neterror?e=dnsNotFound&u=http://xwikiweb:8080/…` | containerised engine only — the browser cannot resolve the `xwikiweb` alias. Daemon under load, or a stale/broken testcontainers network |
 | `SocketException: Connection reset` while provisioning extensions | the servlet container was still booting when provisioning started; daemon starved |
+| `NullPointerException: networkMode was not specified` starting `standalone-firefox`, or `all predefined address pools have been fully subnetted` | the daemon has no address pool left for a new network: earlier runs leaked their testcontainers networks (see below) |
 
 `JETTY_STANDALONE` needs the right JDK **on `PATH`**, not only in `JAVA_HOME`, because the wiki's JVM
 is spawned by a shell script.
+
+## Leftover containers and networks: ryuk has to reach the daemon
+
+The framework never stops the browser container or removes the run's network itself: testcontainers
+starts a `testcontainers/ryuk` container per test JVM, and ryuk removes everything labelled with that
+JVM's session once the JVM is gone. When ryuk cannot do it, nothing else does, and each run leaves
+its browser container (a couple of gigabytes, still running) and its network behind. The networks are
+what breaks first: each one holds an address pool, and once the pools are exhausted every run dies in
+`beforeAll` with the `networkMode` / `address pools` lines of the table above.
+
+The known cause is the ryuk image of **testcontainers 1.17 and older**, still used by builds on old
+XWiki parents (contrib extensions especially): the 0.3.x images speak Docker API 1.29, which recent
+daemons refuse — ryuk logs `client version 1.29 is too old` and removes nothing. Later ryuk images
+negotiate the API version. The fix is per machine and applies to every testcontainers version, since
+the protocol between testcontainers and ryuk has not changed across them:
+
+```properties
+# ~/.testcontainers.properties (or TESTCONTAINERS_RYUK_CONTAINER_IMAGE in the environment);
+# take the ryuk image of the latest testcontainers release
+ryuk.container.image=testcontainers/ryuk:<version>
+```
+
+The `xwiki-it-slot.mjs` wrapper (`xwiki-build` skill) applies such an image when the daemon refuses
+the old ryuk and nothing is configured, and warns when leftover networks have piled up. It removes
+nothing: the old ryuk container carries no session label, so from outside a leftover cannot be told
+apart from a resource of another run still in progress. With no Docker functional test running, the
+leftovers go with:
+
+```bash
+docker rm -f $(docker ps -aq --filter label=org.testcontainers=true)
+docker network prune -f --filter label=org.testcontainers=true
+```
+
+**verify:** `docker version --format '{{.Server.MinAPIVersion}}'` gives the oldest API the daemon
+accepts; the ryuk image a testcontainers version uses by default is the `testcontainers/ryuk:` string
+in its jar (`unzip -p testcontainers-<v>.jar 'org/testcontainers/utility/*.class' | strings | grep
+testcontainers/ryuk:`).
 
 ## What several agents on one machine contend for
 
@@ -74,7 +113,8 @@ distinct collisions, in the order they bite:
 - **The daemon has a finite budget.** Each run holds a servlet engine, a browser container of a
   couple of gigabytes, and a ryuk. A few concurrent runs starve it, and starvation never announces
   itself as such — it surfaces as the setup failures in the table above. Long-lived containers that
-  are nobody's test (MCP servers, leftovers from killed runs) count against the same budget.
+  are nobody's test (MCP servers, leftovers from killed runs or from a ryuk that cannot reach the
+  daemon) count against the same budget.
 - **`~/.m2` is shared.** Two `mvn install` of the same SNAPSHOT from different worktrees interleave,
   so a run can install the artifact another agent has just written. Serialising the whole Maven
   invocation, not merely the failsafe phase, is what removes this one. Related: an extension whose

@@ -91,7 +91,8 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **strategy** — the kinds of test XWiki has, how they are named, and the rules a test must satisfy.
   Procedures live in the test skills.
 - **running-docker-its** — running the Docker functional tests on a developer machine: container
-  networking, setup failures, what parallel runs contend for. Commands in `xwiki-build`.
+  networking, setup failures, leftover containers and networks (ryuk), what parallel runs contend
+  for. Commands in `xwiki-build`.
 
 ### sonarqube/
 Which SonarCloud fixes are *correct* in XWiki, and — the question that actually matters — which look

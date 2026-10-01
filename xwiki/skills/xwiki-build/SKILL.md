@@ -183,6 +183,11 @@ ps -Ao command | grep "[i]ntegration-tests,docker"         # other agents' runs
 docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'   # what the daemon already carries
 ```
 
+Testcontainers leftovers — browser containers and networks of finished runs — mean ryuk could not
+remove them, and once the networks exhaust the daemon's address pools every run dies in `beforeAll`.
+`xwiki-it-slot.mjs --status` counts them, and the wrapper runs testcontainers with a ryuk the daemon
+accepts; the cause, the per-machine fix and the cleanup are in `running-docker-its.md`.
+
 **2. Never stop an XWiki instance you did not start.** `@UITest` defaults to `JETTY_STANDALONE`,
 which runs XWiki on the **host** and binds 8080/8079. When something already listens there, the
 test's Jetty silently fails to bind, the framework drives *that* instance, and `beforeAll` dies with

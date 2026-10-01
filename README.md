@@ -186,7 +186,7 @@ means it needs nothing.
 | **`discourse` MCP** | forum.xwiki.org: search and read with no credential, post with one ([setup](docs/setup.md#forum-write-access-for-the-discourse-mcp-server)) |
 | **`develocity` MCP** | community.develocity.cloud: build scans, test outcomes, flaky history, cache hit rates ([setup](docs/setup.md#develocity-access-for-the-develocity-mcp-server-and-dv-test-history)) |
 | **`sonarqube` MCP** | SonarCloud issues and quality gates, per repo ([setup](docs/setup.md)) |
-| **IT slot limiter** (`xwiki/scripts/xwiki-it-slot.mjs`) | Caps concurrent Docker IT runs on one machine (2 by default). Several agents starting one at once starve the Docker daemon, and starvation surfaces as a `beforeAll` failure that reads like a product bug |
+| **IT slot limiter** (`xwiki/scripts/xwiki-it-slot.mjs`) | Caps concurrent Docker IT runs on one machine (2 by default). Several agents starting one at once starve the Docker daemon, and starvation surfaces as a `beforeAll` failure that reads like a product bug. Also runs testcontainers with a ryuk the daemon accepts, so runs on old XWiki parents stop leaking containers and networks |
 | **Repeat-run oracle** (`xwiki/scripts/xwiki-it-repeat.mjs`) | Runs one functional test N times on one configuration and reports the pass **rate** — a flicker is a probability, and "it passed" is not evidence that a fix worked. Keeps each failing repetition's report, screenshot and video |
 
 ## Setup

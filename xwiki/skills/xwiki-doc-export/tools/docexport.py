@@ -673,10 +673,18 @@ def cmd_accept_class(s, args):
 # --------------------------------------------------------------------------------------------------
 # glossary: the official UI strings of the target language, from an xwiki-platform checkout
 
+def decode(data):
+    # Most .properties files are UTF-8, but some are still ISO-8859-1.
+    try:
+        return data.decode('utf-8')
+    except UnicodeDecodeError:
+        return data.decode('iso-8859-1')
+
+
 def read_file(path):
     try:
-        with open(path, encoding='utf-8', errors='replace') as f:
-            return f.read()
+        with open(path, 'rb') as f:
+            return decode(f.read())
     except OSError:
         return ''
 
@@ -727,8 +735,9 @@ def older_labels(platform, files, current):
     A page that describes an older version ("before 17.8.0 the field was called ...") quotes a label
     renamed since, which the current catalogue no longer holds. The checkout's history has it: for
     every commit that changed an English value, the old value, and the translation of that key in
-    the parent commit. Labels still shown today are left out (the current translation wins). A
-    shallow checkout only yields the renames its history covers."""
+    the parent commit, even for a label another screen still shows ("Locale" was renamed on the
+    Information tab only). An old translation the label still has today is left out. A shallow
+    checkout only yields the renames its history covers."""
     en_files = {en: tr for en, tr in files}
     try:
         log = subprocess.run(['git', '-C', platform, 'log', '-p', '-U0', '--no-merges', '--format=@@@%H',
@@ -759,8 +768,8 @@ def older_labels(platform, files, current):
         (c, f), keys = item
         tr_path = en_files[f]
         try:
-            text = subprocess.run(['git', '-C', platform, 'show', f'{c}^:{tr_path}'], capture_output=True,
-                                  text=True, errors='replace', check=True).stdout
+            text = decode(subprocess.run(['git', '-C', platform, 'show', f'{c}^:{tr_path}'],
+                                         capture_output=True, check=True).stdout)
         except subprocess.CalledProcessError:
             return keys, {}                             # no translation yet, or a shallow boundary
         return keys, translation_page(text) if tr_path.endswith('.xml') else parse_properties(text)
@@ -772,7 +781,7 @@ def older_labels(platform, files, current):
                 old = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), old).replace("''", "'")
                 old = old.removesuffix('</content>').strip()
                 v = tr.get(k)
-                if ui_pair(old, v) and old.lower() not in current:
+                if ui_pair(old, v) and v.strip() not in current.get(old.lower(), ()):
                     slot = older.setdefault(old.lower(), {})
                     slot[v.strip()] = slot.get(v.strip(), 0) + 1
     return older
@@ -815,7 +824,7 @@ def cmd_glossary(s, args):
     ui = {e: sorted(vs, key=lambda v: -vs[v])[:3] for e, vs in en2l.items()}
     older = older_labels(args.platform, files, ui)
     for e, vs in older.items():
-        ui[e] = [f'{v} {OLDER_UI}' for v in sorted(vs, key=lambda v: -vs[v])[:3]]
+        ui[e] = ui.get(e, []) + [f'{v} {OLDER_UI}' for v in sorted(vs, key=lambda v: -vs[v])[:3]]
     s.save(f'ui-strings.{s.lang}.json', ui)
     cfg = s.load('export.json') or {}
     cfg['platform'] = os.path.abspath(args.platform)
@@ -828,8 +837,8 @@ def cmd_glossary(s, args):
                                           **{k: v for k, v in LABELS.items() if k not in labels}})
     if s.load(f'glossary.{s.lang}.json') is None:
         s.save(f'glossary.{s.lang}.json', {})
-    print(f'{pairs} translated UI strings, {len(ui)} distinct English labels ({len(older)} of them only in '
-          f'an older UI) -> ui-strings.{s.lang}.json')
+    print(f'{pairs} translated UI strings, {len(ui)} distinct English labels ({len(older)} of them with an '
+          f'older-UI translation) -> ui-strings.{s.lang}.json')
     print(f'translate the book labels in labels.{s.lang}.json and set "translated": true')
     return 0
 
@@ -971,11 +980,15 @@ def cmd_plan(s, args):
     if unfetched:
         raise SystemExit(f'{len(unfetched)} page(s) not fetched yet (e.g. {unfetched[0]}) -- run fetch first')
     plan = s.path('PLAN.md')
+    decisions = ''
     if os.path.exists(plan):
         with open(plan, encoding='utf-8') as f:
             text = f.read()
         if re.search(r'^\|\s*\d+\s*\|.*\|\s*(todo|doing|blocked)\s*\|', text, re.M) and not args.force:
             raise SystemExit('PLAN.md still has open tasks -- finish them, or pass --force to replace it')
+        # Decisions hold for the whole export (layout, glossary rulings), not for one plan.
+        m = re.search(r'^## Decisions\n(.*?)^## ', text, re.S | re.M)
+        decisions = m.group(1).strip() if m else ''
         os.makedirs(s.path('plans'), exist_ok=True)
         shutil.move(plan, s.path('plans', f'PLAN-{datetime.datetime.now():%Y%m%d-%H%M%S}.md'))
     if os.path.isdir(s.path('tasks')):
@@ -1016,7 +1029,10 @@ def cmd_plan(s, args):
         rows.append(f'| {num} | {name} | {fname} | todo | |')
     s.save('batches.json', batches)
     with open(plan, 'w', encoding='utf-8') as f:
-        f.write(PLAN_HEAD.format(**ctx) + '\n'.join(rows) + '\n')
+        head = PLAN_HEAD.format(**ctx)
+        if decisions:
+            head = head.replace('## Decisions\n', f'## Decisions\n\n{decisions}\n', 1)
+        f.write(head + '\n'.join(rows) + '\n')
     print(f'PLAN.md: {len(tasks)} task(s) -- {len(todo)} page(s) to translate in {len(chunks)} chunk(s) '
           f'over {len(sessions)} session(s)')
     print(f'status: python3 {DOCPLAN} --plan {plan} status')
@@ -1024,8 +1040,9 @@ def cmd_plan(s, args):
 
 
 PROMPT = """You are translating pages of the XWiki documentation from English into `{lang}` for a
-printed book. Work only on the files named here, write each result with your file-writing tool, and
-do not read anything else.
+printed book. Work only on the files named here -- never modify another, not even with a script:
+other translators are writing the rest of `translated/` at the same time. Write each result with
+your file-writing tool, and do not read anything else.
 
 ## Pages
 
@@ -1039,6 +1056,8 @@ For each page: read the source file, translate it, write the result to the targe
   (`h1.page-title`).
 - Except the metadata line under it (`p.page-meta`, e.g. "How-to · Extension: ..."): leave it as it
   is. The build writes it in {lang} from the book's own labels, the same on every page.
+- Translate, do not edit: add nothing and drop nothing, even where a passage reads oddly in {lang};
+  name it in your reply instead.
 
 ## What must come out byte-identical
 
@@ -1055,10 +1074,10 @@ For each page: read the source file, translate it, write the result to the targe
   with the translations XWiki's UI catalogue holds for them. Where several are listed, they come
   from different screens: pick the one that fits the context (the first is the most frequent), and
   if none fits -- a lookup can match a sentence fragment -- translate freely. A translation marked
-  "{older_ui}" is what the UI showed before that English label was renamed: use it (without the
-  mark) where a page describes an older version ("before 17.8.0 the field was called ..."). The
-  {lang} UI may never have had the inconsistency such a passage explains; if so, say what the
-  {lang} screen showed rather than quoting the English label:
+  "{older_ui}" is what the {lang} UI showed before that English label was renamed. Where a page
+  describes a rename ("previously called ...", "before 17.8.0 ..."), quote it (without the mark) for
+  the old label. If none is listed, the {lang} label may never have changed: quote that passage's
+  English labels as they are:
 
 {terms}
 
@@ -1081,7 +1100,7 @@ For each page: read the source file, translate it, write the result to the targe
 
 Natural, idiomatic {lang} technical documentation, formal register (for German: "Sie"), the
 imperative for steps. Keep the typography of the target language (for German: „…" quotes around
-UI labels).
+UI labels; for French: « … » with a non-breaking space, U+00A0, inside).
 """
 
 

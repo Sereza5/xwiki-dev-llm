@@ -28,6 +28,12 @@ XWiki repos are public, so a fix can be a zero-day signpost. Until the issue is 
   security group), not as a public ticket. Security discussion happens on the
   committer-private/security mailing list (see [[index]] in `servers/`).
 - Code comments must never carry a live exploit description either — see [[code-comments]].
+- The **published advisory** carries no PoC either (no exploit request, payload or reproduction
+  steps — only the affected feature, attack vector, requirements and impact), even after
+  disclosure: scanners import advisories and replay their PoCs. The PoC stays in the JIRA issue.
+  The Security Policy's "Security Advisory template and information" section has required this
+  since October 2026. It changes past practice (older advisories often have one), so past
+  advisories are no model for it. Drafting details: the `xwiki-security-advisory` skill.
 
 This is why a security fix's public commit looks deliberately mundane.
 

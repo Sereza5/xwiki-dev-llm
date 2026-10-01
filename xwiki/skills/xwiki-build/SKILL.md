@@ -183,6 +183,11 @@ ps -Ao command | grep "[i]ntegration-tests,docker"         # other agents' runs
 docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'   # what the daemon already carries
 ```
 
+Testcontainers leftovers — browser containers and networks of finished runs — mean ryuk cannot
+reach the daemon, and once the networks exhaust the daemon's address pools every run dies in
+`beforeAll`. `xwiki-it-slot.mjs --status` counts them; the cause and the one-line fix
+(`ryuk.container.image` in `~/.testcontainers.properties`) are in `running-docker-its.md`.
+
 **2. Never stop an XWiki instance you did not start.** `@UITest` defaults to `JETTY_STANDALONE`,
 which runs XWiki on the **host** and binds 8080/8079. When something already listens there, the
 test's Jetty silently fails to bind, the framework drives *that* instance, and `beforeAll` dies with
@@ -220,7 +225,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/xwiki-it-slot.mjs" --status   # who is holdi
 ```
 
 Two runs at a time by default (`--max N`, or `XWIKI_LLM_IT_SLOTS`). Exit code **75** means no slot
-came free within `--wait` (3600s default) — report which run holds it rather than launching anyway.
+came free within `--wait` (3600s default) — report which run holds it rather than launching anyway. When the daemon refuses the ryuk of testcontainers 1.17 and older, the wrapper runs the command
+with a ryuk that works, unless one is configured; and after the command it reports the testcontainers
+containers and networks the run created that are still there, without removing them.
 
 **To run one test many times** — measuring a flicker's pass *rate* rather than seeing whether it
 passed once — use `scripts/xwiki-it-repeat.mjs` instead of looping by hand. It takes the slot for

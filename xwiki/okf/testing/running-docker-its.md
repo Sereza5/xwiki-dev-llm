@@ -74,23 +74,23 @@ its browser container (a couple of gigabytes, still running) and its network beh
 what breaks first: each one holds an address pool, and once the pools are exhausted every run dies in
 `beforeAll` with the `networkMode` / `address pools` lines of the table above.
 
-The known cause is the ryuk image of **testcontainers 1.17 and older** (XWiki 14.x/15.x branches),
-`testcontainers/ryuk:0.3.4`: it speaks Docker API 1.29, and recent daemons (Docker 29 accepts 1.40 and
-up) refuse it — ryuk logs `client version 1.29 is too old` and removes nothing. Later testcontainers
-versions ship a ryuk that negotiates the API version. The fix is per machine, and works for every
-testcontainers version since the protocol between testcontainers and ryuk has not changed:
+The known cause is the ryuk image of **testcontainers 1.17 and older**, still used by builds on old
+XWiki parents (contrib extensions especially): the 0.3.x images speak Docker API 1.29, which recent
+daemons refuse — ryuk logs `client version 1.29 is too old` and removes nothing. Later ryuk images
+negotiate the API version. The fix is per machine and applies to every testcontainers version, since
+the protocol between testcontainers and ryuk has not changed across them:
 
 ```properties
-# ~/.testcontainers.properties (or TESTCONTAINERS_RYUK_CONTAINER_IMAGE in the environment)
-ryuk.container.image=testcontainers/ryuk:0.14.0
+# ~/.testcontainers.properties (or TESTCONTAINERS_RYUK_CONTAINER_IMAGE in the environment);
+# take the ryuk image of the latest testcontainers release
+ryuk.container.image=testcontainers/ryuk:<version>
 ```
 
-The `xwiki-it-slot.mjs` wrapper (`xwiki-build` skill) applies that image when the daemon refuses the
-old ryuk and nothing is configured, reports the testcontainers resources a run created that are
-still there once it ended, and `--status` counts the leftovers. It removes nothing on its own: the
-ryuk container carries no session label, so from outside a leftover cannot be told apart from a
-resource of another run still in progress. With no Docker functional test running, the leftovers
-go with:
+The `xwiki-it-slot.mjs` wrapper (`xwiki-build` skill) applies such an image when the daemon refuses
+the old ryuk and nothing is configured, and warns when leftover networks have piled up. It removes
+nothing: the old ryuk container carries no session label, so from outside a leftover cannot be told
+apart from a resource of another run still in progress. With no Docker functional test running, the
+leftovers go with:
 
 ```bash
 docker rm -f $(docker ps -aq --filter label=org.testcontainers=true)
@@ -98,8 +98,9 @@ docker network prune -f --filter label=org.testcontainers=true
 ```
 
 **verify:** `docker version --format '{{.Server.MinAPIVersion}}'` gives the oldest API the daemon
-accepts, and the ryuk image a testcontainers version uses by default is the `testcontainers/ryuk:`
-string in its jar.
+accepts; the ryuk image a testcontainers version uses by default is the `testcontainers/ryuk:` string
+in its jar (`unzip -p testcontainers-<v>.jar 'org/testcontainers/utility/*.class' | strings | grep
+testcontainers/ryuk:`).
 
 ## What several agents on one machine contend for
 

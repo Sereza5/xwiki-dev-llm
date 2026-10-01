@@ -14,11 +14,10 @@
  *
  * It also keeps testcontainers' leftovers from piling up. Testcontainers removes a run's containers
  * and networks through a ryuk container once the test JVM exits, but the ryuk of testcontainers 1.17
- * and older (0.3.4) speaks Docker API 1.29, which recent daemons refuse: every run then leaks its
+ * and older (0.3.x) speaks Docker API 1.29, which recent daemons refuse: every run then leaks its
  * browser container and its network until the daemon has no address pool left. So when the daemon
- * refuses that API version and no ryuk image is configured, the command runs with a ryuk known to
- * work, and once the command ends the testcontainers resources it created and that are still there
- * are reported, with the commands to remove them.
+ * refuses that API version and no ryuk image is configured, the command runs with a ryuk that
+ * negotiates the API version, and a run starting while leftover networks have piled up says so.
  *
  *   node xwiki-it-slot.mjs -- mvn verify -B -ntp -Pdocker,integration-tests
  *   node xwiki-it-slot.mjs --max 1 -- mvn verify …     # exclusive
@@ -44,13 +43,16 @@ const NO_SLOT_EXIT = 75;
 const POLL_MS = 5000;
 const REPORT_EVERY_MS = 60000;
 
-/** The Docker API version spoken by testcontainers/ryuk:0.3.4, the default of testcontainers <= 1.17. */
+/** The Docker API version spoken by the 0.3.x ryuk images, the default of testcontainers 1.17 and older. */
 const OLD_RYUK_API_VERSION = '1.29';
-/** Verified to reap with every testcontainers version XWiki uses (1.17 to 2.0); 2.0.5's own default. */
+/**
+ * A ryuk that negotiates the Docker API version, verified to reap with testcontainers 1.17 and 2.0. It
+ * replaces the ryuk of whatever testcontainers version the build uses, newer ones included, which is
+ * harmless while the testcontainers-ryuk protocol stays unchanged: only a testcontainers release that
+ * changes that protocol requires moving this to the ryuk that release names.
+ */
 const WORKING_RYUK_IMAGE = 'testcontainers/ryuk:0.14.0';
 const TESTCONTAINERS_LABEL = 'org.testcontainers=true';
-/** Ryuk waits 10s for its client to reconnect before removing anything. */
-const LEFTOVER_GRACE_MS = 30000;
 /** Empty testcontainers networks above which the daemon is about to run out of address pools. */
 const EMPTY_NETWORKS_WARNING = 10;
 
@@ -193,9 +195,8 @@ function ryukEnvironment(settings) {
   if (settings.has('ryuk.container.image') || settings.get('ryuk.disabled') === 'true') return null;
   const minimum = docker('version', '--format', '{{.Server.MinAPIVersion}}');
   if (!minimum || minimum.length === 0 || compareVersions(minimum[0], OLD_RYUK_API_VERSION) <= 0) return null;
-  console.error(`The Docker daemon refuses API ${OLD_RYUK_API_VERSION} (minimum ${minimum[0]}), which the ryuk of `
-    + `testcontainers 1.17 and older speaks: that ryuk cannot remove a run's containers and networks, so running `
-    + `with ${WORKING_RYUK_IMAGE}. Set ryuk.container.image in ~/.testcontainers.properties to choose another one.`);
+  console.error(`Running with ${WORKING_RYUK_IMAGE}: the Docker daemon refuses the ryuk of testcontainers 1.17 `
+    + 'and older (set ryuk.container.image in ~/.testcontainers.properties to choose another one).');
   return { TESTCONTAINERS_RYUK_CONTAINER_IMAGE: WORKING_RYUK_IMAGE };
 }
 
@@ -223,34 +224,6 @@ function warnAboutEmptyNetworks(resources) {
   console.error(`${empty} testcontainers networks are left over from earlier runs. Each one holds an address `
     + 'pool, and once they are exhausted every run dies in beforeAll ("all predefined address pools have been '
     + 'fully subnetted", or "networkMode was not specified"). To remove the leftovers:\n' + CLEANUP_COMMANDS);
-}
-
-/**
- * Reports the testcontainers resources created while the command ran that ryuk did not remove. It
- * deletes nothing: the ryuk container carries no session label, so a leftover cannot be told apart
- * from a resource of another run still in progress.
- */
-async function reportLeftovers(before) {
-  const known = { containers: new Set(before.containers), networks: new Set(before.networks) };
-  let created = null;
-  for (const deadline = Date.now() + LEFTOVER_GRACE_MS; ;) {
-    const now = testcontainersResources();
-    if (!now) return;
-    created = {
-      containers: now.containers.filter(id => !known.containers.has(id)),
-      networks: now.networks.filter(id => !known.networks.has(id))
-    };
-    if (created.containers.length + created.networks.length === 0 || Date.now() >= deadline) break;
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
-  if (created.containers.length + created.networks.length === 0) return;
-  const others = listHolders(max).filter(holder => holder.pid !== process.pid);
-  console.error(`${created.containers.length} testcontainers container(s) and ${created.networks.length} `
-    + `network(s) created during this run are still there ${LEFTOVER_GRACE_MS / 1000}s after it ended`
-    + (others.length > 0
-      ? `; they may belong to the other run(s) holding a slot:\n${describe(others)}\n`
-      : ': ryuk did not remove them (okf/testing/running-docker-its.md). To remove them:\n')
-    + CLEANUP_COMMANDS);
 }
 
 const { options, command } = parseArgs(process.argv.slice(2));
@@ -309,8 +282,8 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(signal, () => { release(); process.exit(128 + os.constants.signals[signal]); });
 }
 
-const before = testcontainersResources();
-if (before) warnAboutEmptyNetworks(before);
+const resources = testcontainersResources();
+if (resources) warnAboutEmptyNetworks(resources);
 const ryukEnv = ryukEnvironment(testcontainersSettings());
 
 const child = spawn(command[0], command.slice(1), { stdio: 'inherit', env: { ...process.env, ...ryukEnv } });
@@ -319,9 +292,7 @@ child.on('error', error => {
   console.error(`Cannot run [${command[0]}]: ${error.message}`);
   process.exit(1);
 });
-child.on('exit', async (code, signal) => {
+child.on('exit', (code, signal) => {
   release();
-  // Interrupted runs exit right away: whoever interrupted it is not waiting for a report.
-  if (before && !signal) await reportLeftovers(before);
   process.exit(signal ? 128 + os.constants.signals[signal] : code);
 });

@@ -5,7 +5,8 @@ summary: The kinds of tests XWiki uses, their naming, the no-stdout rule, the pr
   rule, the scenario rule (no two @Test methods build the same fixture, a distinct fixture is what
   justifies a distinct method, and @Order is not a substitute), the page-object boundary (no
   getDriver() in a test), the don't-pay-the-timeout rule, how to read a PRChecker log line and how to grant
-  Programming Rights to a test's own content, the bare @UITest on an AllIT container, coverage, and where each
+  Programming Rights to a test's own content, the bare @UITest on an AllIT container, @Order on every
+  @UITest method, coverage, and where each
   test framework lives. Procedures live in the test skills.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/
@@ -108,10 +109,13 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   on an individual `*IT` class already apply when it runs nested: repeating them on the container is
   redundant, and repeating a scalar (`browser`, `database`, `servletEngine`, …) that a nested class
   also sets aborts the run with a `DockerTestException` as soon as the two values differ.
-- **Test method order matches `@Order`** — in a test class that orders its methods with `@Order(n)`,
-  keep the physical (source) order of the `@Test` methods aligned with their `@Order` values (1, 2,
-  3 …) so the file reads in execution order. When adding a new test, place it according to its
-  `@Order` value rather than simply appending it at the end.
+- **Every functional test method carries `@Order`, in source order** — give each `@Test` of a
+  `@UITest` class an `@Order(n)`. `@UITest` orders methods with `MethodOrderer.OrderAnnotation`, and
+  methods without `@Order` all share its default value and run in an order JUnit deliberately
+  leaves unspecified. Keep the physical (source) order of the methods aligned with their `@Order`
+  values (1, 2, 3 …) so the file reads in execution order, and when adding a test, place it
+  according to its `@Order` value rather than simply appending it at the end. This fixes the order
+  only; it does not share a fixture (see the scenario rule above).
 - **A mandatory class in an `@OldcoreTest`** — to get a real XClass from its
   `MandatoryDocumentInitializer` (rather than mocking `BaseObject`s), list the initializer in
   `@ComponentList` and call `oldcore.getSpyXWiki().initializeMandatoryDocuments(context)` in the

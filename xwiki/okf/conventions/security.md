@@ -127,8 +127,11 @@ the same check.
 
 **Serializing an author.** The `document` `UserReferenceSerializer<DocumentReference>` resolves a
 `null` user reference to the **current user**, so passing an author that may be missing makes it
-whoever the code runs for. Check for `null` (and for `GuestUserReference.INSTANCE`, which it
-serializes to `null`) before calling it, and use a `null` `DocumentReference`, i.e. guest, for both.
+whoever the code runs for. Check for `null` before calling it if the user reference is nullable.
+`GuestUserReference.INSTANCE` needs no special case: the serializer already turns it into
+`null`. As a `DocumentReference`, guest **is** `null` — there is no other value for it (the
+`XWiki.XWikiGuest` reference some old code uses is deprecated), so producing anything but `null` for
+guest is a bug.
 
 ## Rendering an XObject property — display it, never parse its raw value
 

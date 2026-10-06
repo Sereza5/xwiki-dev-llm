@@ -46,7 +46,8 @@ while `_links` hrefs carry the numeric one.
 1. **Search first**, so you do not file a duplicate.
 2. Resolve the project, then pick a type from the types that project enables. A project with no
    types enabled cannot hold work packages at all, so check before drafting.
-3. Draft `subject` and a Markdown `description` describing the work in user-visible terms.
+3. Draft `subject` and a Markdown `description` describing the work in user-visible terms, and set
+   **Observed in versions** per `okf/conventions/versioning.md`.
 4. **Run the create form** and show the user the drafted fields, the defaults it resolved and any
    validation errors.
 5. On approval, POST the real endpoint. Report the returned `displayId` and

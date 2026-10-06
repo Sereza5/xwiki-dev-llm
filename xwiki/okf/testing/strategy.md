@@ -5,9 +5,10 @@ summary: The kinds of tests XWiki uses, their naming, the no-stdout rule, the pr
   rule, the assertion rule (JUnit 5 where it fits, Hamcrest assertThat where it reports better), the
   scenario rule (no two @Test methods build the same fixture, a distinct fixture is what justifies a
   distinct method, and @Order is how methods share one), @Order on every @UITest method, the
-  page-object boundary (no getDriver() in a test), the don't-pay-the-timeout rule, how to read a
-  PRChecker log line and how to grant Programming Rights to a test's own content, asserting whose
-  rights code runs with, the bare @UITest on an AllIT container, getting a mandatory class in an
+  page-object boundary (a test holds no HTML/JS knowledge: no getDriver(), selector or WebElement),
+  the don't-pay-the-timeout rule, how to read a PRChecker log line and how to grant Programming
+  Rights to a test's own content, asserting whose rights code runs with,
+  the bare @UITest on an AllIT container, getting a mandatory class in an
   @OldcoreTest, MockitoOldcore's save authors, mocking a raw injected Provider, coverage, and where
   each test framework lives. Procedures live in the test skills.
 sources:
@@ -67,18 +68,27 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   Whatever is fixture rather than subject is built with `TestUtils` (`createPage`, `createUser`,
   `loginAsSuperAdmin`, REST), never by driving the UI as a user would.
   (https://dev.xwiki.org/xwiki/bin/view/Community/Testing/#HBestPractices)
-- **No `getDriver()` in a test — the page-object boundary** — a functional test (`*IT.java`) drives
-  the UI only through page objects. Needing `getDriver()` in the test class (or a raw `findElement`,
-  `By` lookup or `getCssValue()` on top of it) means **an API is missing from a page object
-  somewhere** — add it there, then call it from the test. Which page object gets it follows from what
-  a page object *is*: **a page object represents a real XWiki page and the actions that can be
-  performed on that page.** So widen or add the method on the existing page object for the page under
-  test — widening an already-private helper to public counts — and do not create a page object for a
-  page the test itself creates as a fixture, which is not a real XWiki page. What is specific to the
+- **A test knows nothing of the HTML or JavaScript — the page-object boundary** — a functional test
+  (`*IT.java`) drives *and inspects* the UI only through page objects, in the user's terms. Any
+  knowledge of the markup or scripts in the test class — `getDriver()`, a `By`, a CSS selector or
+  XPath, a CSS class or DOM attribute value, a `WebElement`, `executeScript`, `getCssValue()` —
+  means **an API is missing from a page object somewhere** — add it there, then call it from the
+  test. That includes a selector handed *to* a page-object method
+  (`viewPage.contentContainsElement(By.cssSelector(".box.infomessage"))` → a method that says what
+  the user sees) and a DOM identifier passed as a plain string (a category's `data-*` value rather
+  than its label or an enum). Visible text, keyboard input and the wiki syntax of the source
+  (including a macro parameter name) are what the user sees, so they stay in the test; a page-object
+  getter of text decides whether screen-reader-only labels (`sr-only`) are part of it and says so.
+  Which page object gets the new API follows from what a page object *is*: **a page object represents
+  a real XWiki page and the actions that can be performed on that page** — a component shown on many
+  pages (a message box, a suggest input) gets a reusable `*Element` returned by those pages. So widen
+  or add the method on the existing page object for the page under test — widening an
+  already-private helper to public counts — and do not create a page object for a page the test
+  itself creates as a fixture, which is not a real XWiki page. What is specific to the
   test, such as the wiki content it gives that fixture page, likewise stays in the test.
-  **`getDriver()` calls already in the test class are not a precedent** — most classes predate the
-  rule, so matching the surrounding code is exactly what breaks it. New code complies, and a method
-  edited for any other reason is the moment to move its calls behind a page object.
+  **Such calls already in the test class are not a precedent** — most classes predate the rule, so
+  matching the surrounding code is exactly what breaks it. New code complies, and a method edited for
+  any other reason is the moment to move its calls behind a page object.
 - **Don't pay the timeout (Docker functional tests)** — a test must never burn the full Selenium
   wait timeout waiting for something that will not appear. The waiting APIs (`findElement`,
   `findElements`, and the `waitUntil…` helpers) are for elements *expected to be present*; to assert

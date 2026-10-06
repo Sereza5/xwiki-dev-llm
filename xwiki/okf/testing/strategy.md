@@ -6,6 +6,7 @@ summary: The kinds of tests XWiki uses, their naming, the no-stdout rule, the pr
   scenario rule (no two @Test methods build the same fixture, a distinct fixture is what justifies a
   distinct method, and @Order is how methods share one), @Order on every @UITest method, the
   page-object boundary (a test holds no HTML/JS knowledge: no getDriver(), selector or WebElement),
+  page-object actions that wait for their own outcome,
   the don't-pay-the-timeout rule, how to read a PRChecker log line and how to grant Programming
   Rights to a test's own content, asserting whose rights code runs with,
   the bare @UITest on an AllIT container, getting a mandatory class in an
@@ -89,6 +90,13 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   **Such calls already in the test class are not a precedent** — most classes predate the rule, so
   matching the surrounding code is exactly what breaks it. New code complies, and a method edited for
   any other reason is the moment to move its calls behind a page object.
+- **A page-object action waits for its own outcome** — a page-object method that acts (click, insert,
+  submit, open, select) returns only once the UI is in the state that action produces: the dialog
+  open or closed, the menu closed, the button toggled, the macro rendered, the list filtered. The test
+  must not need a `waitUntil…` after calling it; a wait in the test after a page-object call means
+  the wait belongs in that method. The test waits only for what the page object cannot know, such as
+  content specific to the test, and it is not always possible (a modal shared by several editors
+  cannot wait for one editor's refresh).
 - **Don't pay the timeout (Docker functional tests)** — a test must never burn the full Selenium
   wait timeout waiting for something that will not appear. The waiting APIs (`findElement`,
   `findElements`, and the `waitUntil…` helpers) are for elements *expected to be present*; to assert

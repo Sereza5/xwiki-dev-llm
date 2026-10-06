@@ -11,6 +11,9 @@ description: Create a GitHub pull request for an XWiki repo (xwiki-platform, xwi
   description you compose: `XWIKI-NNNNN: <the JIRA issue title>` (use `XCOMMONS-NNNNN:` in
   xwiki-commons, `XRENDERING-NNNNN:` in xwiki-rendering). Put what the commit actually does in the
   body, as `*` bullets. See `okf/conventions/commit-messages.md`.
+- A repo tracked on OpenProject (op.xwiki.org) uses the work package's project-based id instead —
+  `DA-96: <the work package subject>`, never `OP#<n>` — and the PR body links
+  `https://op.xwiki.org/work_packages/DA-96` (`xwiki-openproject` skill).
 - For trivial changes that do not warrant a JIRA issue, prefix with `[Misc] <description>`.
   Do not create unnecessary JIRA issues
   (see https://dev.xwiki.org/xwiki/bin/view/Community/DevelopmentPractices).

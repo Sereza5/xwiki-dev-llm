@@ -76,12 +76,15 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   test. That includes a selector handed *to* a page-object method
   (`viewPage.contentContainsElement(By.cssSelector(".box.infomessage"))` → a method that says what
   the user sees) and a DOM identifier passed as a plain string (a category's `data-*` value rather
-  than its label or an enum). Visible text, keyboard input and the wiki syntax of the source are
-  what the user sees, so they stay in the test. Which page object gets the new API follows from
-  what a page object *is*: **a page object represents a real XWiki page and the actions that can be
-  performed on that page.** So widen or add the method on the existing page object for the page under
-  test — widening an already-private helper to public counts — and do not create a page object for a
-  page the test itself creates as a fixture, which is not a real XWiki page. What is specific to the
+  than its label or an enum). Visible text, keyboard input and the wiki syntax of the source
+  (including a macro parameter name) are what the user sees, so they stay in the test; a page-object
+  getter of text decides whether screen-reader-only labels (`sr-only`) are part of it and says so.
+  Which page object gets the new API follows from what a page object *is*: **a page object represents
+  a real XWiki page and the actions that can be performed on that page** — a component shown on many
+  pages (a message box, a suggest input) gets a reusable `*Element` returned by those pages. So widen
+  or add the method on the existing page object for the page under test — widening an
+  already-private helper to public counts — and do not create a page object for a page the test
+  itself creates as a fixture, which is not a real XWiki page. What is specific to the
   test, such as the wiki content it gives that fixture page, likewise stays in the test.
   **Such calls already in the test class are not a precedent** — most classes predate the rule, so
   matching the surrounding code is exactly what breaks it. New code complies, and a method edited for

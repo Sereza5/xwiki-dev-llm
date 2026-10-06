@@ -55,7 +55,7 @@ From the response's `fields`, collect:
   `h2. Impact` / `h2. PoC` structure — lift the impact from it, never the PoC), `security` (confirms it's
   restricted), `priority`, `versions` (Affects), `fixVersions`, `reporter`.
 - The **CVSS vector** (`customfield_11870`, e.g. `CVSS:4.0/…`) and its numeric **score**
-  (`customfield_11871`); `okf/servers/jira.md` has the facts about both fields.
+  (`customfield_11871`); both fields are described in `okf/processes/security-policy.md`.
 - A `customfield_*` holding a `devSummaryJson`/pull-request bean can reveal whether a fix PR/commit
   already exists — useful for the Patches/References sections once a fix lands (remember: the fix
   commit message will be **obfuscated**, per [[security-policy]], so don't expect the JIRA key in it).
@@ -122,8 +122,7 @@ gh api repos/<owner>/<repo>/security-advisories --jq \
 gh api repos/<owner>/<repo>/security-advisories/<ghsa_id> --jq '.description'
 ```
 
-Only the more recent advisories have a CVSS table: older ones give the vector alone, so pick the
-precedents among those that have one.
+Pick precedents that have a CVSS table (older advisories give only the vector).
 
 Match the **register** — tight and mechanism-specific, one sentence per row (e.g. "Reachable by a
 guest, who does not need an account." rather than a generic "Low privileges needed") — not the
@@ -142,12 +141,7 @@ still missing to the user instead of guessing it.
 second one "for advisory packaging" (e.g. a separate impact of the same attack). They get **one**
 advisory: its Impact describes each of them, its References list every issue, its affected products
 cover the modules of all of them, and it carries a single CVSS score, the highest. Each issue keeps
-the vector of its own impact in JIRA (`okf/servers/jira.md`) and gets the advisory link (Step 6).
-
-**Don't hard-wrap the description.** GitHub renders every newline of an advisory description as a
-line break, as it does in issue and pull request bodies, so a paragraph wrapped at 120 characters
-shows up broken in the middle of its sentences. Write each paragraph, list item and table row on a
-single line; only blank lines, headings, list items and table rows start a new line.
+the vector of its own impact in JIRA and gets the advisory link (Step 6).
 
 | Advisory field | Source |
 |---|---|
@@ -158,7 +152,7 @@ single line; only blank lines, headings, list items and table rows start a new l
 | Patches | `fixVersions` if the fix isn't released yet ("will be fixed in…"); the actual released versions + patch commit once it is |
 | Workarounds | From the JIRA description if a mitigation is mentioned, else "no known workaround other than upgrading" |
 | References | The JIRA issue URL, plus the fix commit's SHA/URL — use an explicit placeholder such as `[commit SHA once merged]` until the fix actually lands, matching the Patches row below |
-| Credit / Attribution | `reporter`, or a named security researcher from the description — **ask the user to confirm the reporter consents to be credited** before naming them, and note that a non-committer reporter needs adding as a collaborator on the draft. Credit type (GitHub's definitions): `finder` for the person who discovered the vulnerability, also when they reported it themselves; `reporter` only for someone who passed on a finding that isn't theirs. The credits field isn't shown in the description, so also name their GitHub account in the Attribution section, as a link: `[@login](https://github.com/login)` |
+| Credit / Attribution | `reporter`, or a named security researcher from the description — **ask the user to confirm the reporter consents to be credited** before naming them, and note that a non-committer reporter needs adding as a collaborator on the draft. Credit type (GitHub's definitions): `finder` for the person who discovered the vulnerability, also when they reported it themselves; `reporter` only for someone who passed on a finding that isn't theirs. Also link their account in the Attribution section: `[@login](https://github.com/login)` |
 
 CWE: pick the closest match from https://cwe.mitre.org/data/index.html — this is a per-vulnerability
 judgment call, not something to default without reasoning about the actual flaw (e.g. broken access
@@ -257,7 +251,7 @@ not the repository one.
   Version/s", or the patched versions from its "Fix Version/s", update the issue with the verified
   values (xwiki-jira skill; the field conventions are in `okf/servers/jira.md`), so that JIRA, the
   advisory and the Security Advisory Application agree. The same goes for the CVSS vector and score
-  when the advisory's differ from the issue's (fields in `okf/servers/jira.md`). Without write access
+  when the advisory's differ from the issue's (fields in `okf/processes/security-policy.md`). Without write access
   to JIRA (e.g. no token), tell the user exactly which values to set on which issue instead of
   leaving it silently out of sync.
   Optionally, also link the issue(s) that introduced the vulnerable code: the commits found for the

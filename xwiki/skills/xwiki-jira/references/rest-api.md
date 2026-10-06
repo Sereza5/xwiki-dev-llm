@@ -25,7 +25,8 @@ curl -s -H "Authorization: Bearer $JIRA_API_TOKEN" -H "Accept: application/json"
 ```
 
 `versions` = Affects Version/s, `fixVersions` = Fix Version/s. Always pipe through `python3`/`jq` and
-keep only the fields you need — never dump a raw issue into context.
+keep only the fields you need — never dump a raw issue into context. To find which `customfield_*`
+holds a field, add `expand=names`: it maps each field id to its display name.
 
 ## List a project's versions (to choose Affects/Fix Version)
 

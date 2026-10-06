@@ -10,10 +10,8 @@ description: Create a GitHub pull request for an XWiki repo (xwiki-platform, xwi
 - Reference the JIRA issue, and make the summary line **the issue's title, verbatim** rather than a
   description you compose: `XWIKI-NNNNN: <the JIRA issue title>` (use `XCOMMONS-NNNNN:` in
   xwiki-commons, `XRENDERING-NNNNN:` in xwiki-rendering). Put what the commit actually does in the
-  body, as `*` bullets. See `okf/conventions/commit-messages.md`. **Security fixes are the
-  exception**: until disclosure, the summary keeps the key but replaces the title with a neutral
-  description of the change (`XWIKI-NNNNN: <neutral description>`), and nothing public describes the
-  vulnerability (`okf/processes/security-policy.md`).
+  body, as `*` bullets. See `okf/conventions/commit-messages.md`. **Except security fixes**:
+  `XWIKI-NNNNN: <neutral description>`, never the issue title (`okf/processes/security-policy.md`).
 - A repo tracked on OpenProject (op.xwiki.org) uses the work package's project-based id instead —
   `DA-96: <the work package subject>`, never `OP#<n>` — and the PR body links
   `https://op.xwiki.org/work_packages/DA-96` (`xwiki-openproject` skill).
@@ -26,7 +24,7 @@ description: Create a GitHub pull request for an XWiki repo (xwiki-platform, xwi
   push rewrites *every* local branch that also exists on the remote, and the lease does not stop it.
 - **Backtick `@` tokens and `#123` in the commit body and the PR body** — a bare `@since` there
   notifies the GitHub account of that name, and a pushed message cannot be corrected. The summary
-  line is exempt, being the issue title verbatim. Rule and exceptions:
+  line is exempt. Rule and exceptions:
   `okf/conventions/commit-messages.md`; the `check-commit-text` hook also blocks it.
 - When the change was authored with AI assistance, add AI attribution: a `Co-Authored-By: Claude
   <model> <noreply@anthropic.com>` trailer on the commit and a "Generated with Claude Code" line in
@@ -43,10 +41,7 @@ for you, so fetch it and fill it yourself (check the repo first: a contrib repo 
 gh api repos/xwiki/.github/contents/.github/pull_request_template.md -q .content | base64 -d
 ```
 
-Don't hard-wrap the body: GitHub renders every newline of a PR description as a line break, so write
-each paragraph and list item on a single line.
-
-Keep the template's headings and their levels (`# Jira URL`, `# Changes` with `## Description` and
+Keep its headings and their levels (`# Jira URL`, `# Changes` with `## Description` and
 `## Clarifications`, `# Screenshots & Video`, `# Executed Tests`, `# Expected merging strategy`), and
 complete every section meaningfully:
 

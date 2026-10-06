@@ -3,15 +3,17 @@ title: XWiki testing strategy (overview)
 stability: durable
 summary: The kinds of tests XWiki uses, their naming, the no-stdout rule, the prefer-the-lightest-base
   rule, the assertion rule (JUnit 5 where it fits, Hamcrest assertThat where it reports better), the
-  scenario rule (no two @Test methods build the same fixture, a distinct fixture is what
-  justifies a distinct method, and @Order is not a substitute), the page-object boundary (no
-  getDriver() in a test), the don't-pay-the-timeout rule, how to read a PRChecker log line and how to grant
-  Programming Rights to a test's own content, the bare @UITest on an AllIT container, @Order on every
-  @UITest method, coverage, and where each
-  test framework lives. Procedures live in the test skills.
+  scenario rule (no two @Test methods build the same fixture, a distinct fixture is what justifies a
+  distinct method, and @Order is how methods share one), @Order on every @UITest method, the
+  page-object boundary (no getDriver() in a test), the don't-pay-the-timeout rule, how to read a
+  PRChecker log line and how to grant Programming Rights to a test's own content, asserting whose
+  rights code runs with, the bare @UITest on an AllIT container, getting a mandatory class in an
+  @OldcoreTest, MockitoOldcore's save authors, mocking a raw injected Provider, coverage, and where
+  each test framework lives. Procedures live in the test skills.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/JavaUnitTesting/#HBestpractices
+  - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/#HScenarios
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/#HDon27tpaythetimeout
 ---
 
@@ -51,15 +53,17 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   fixture once and asserts the successive states that fixture goes through, rather than one method
   per assertion as in a unit test. The operative rule is **no two methods building the same
   fixture** — before adding a `@Test`, if a method in the class already builds the fixture your
-  assertion needs, add the assertion there; before adding a new `*IT` class, look for an existing
-  `*IT` covering the same feature and extend it. It is **not** "always a single method": a method
-  nobody can follow end to end, or one whose failure no longer says which behaviour broke, has been
-  merged too far. **A distinct fixture justifies a distinct method; a merely distinct assertion does
-  not** — that is the line, and readability decides what happens on the fixture-sharing side of it.
-  **`@Order` is not a substitute** — it fixes execution order only, it does not share a fixture, and
-  making methods depend on each other's leftover state makes them impossible to run in isolation;
-  sharing a fixture across methods needs
-  `@TestInstance(PER_CLASS)` plus shared state, which is rarely worth it below a handful of methods.
+  assertion needs, add the assertion there or in a method ordered after it; before adding a new
+  `*IT` class, look for an existing `*IT` covering the same feature and extend it. It is **not**
+  "always a single method": a method nobody can follow end to end, or one whose failure no longer
+  says which behaviour broke, has been merged too far. **A distinct fixture justifies a distinct
+  method; a merely distinct assertion does not** — that is the line, and readability decides what
+  happens on the fixture-sharing side of it.
+  **`@Order` is how methods share a fixture** — the methods of a `@UITest` class run against the
+  same instance, so a later method may rely on what an earlier one left behind; that is the point of
+  ordering them, since rebuilding a fixture per method is what makes functional tests slow. The
+  exception is a fixture that is cheap to build: a method may then build it itself, so it can be run
+  on its own when debugging.
   Whatever is fixture rather than subject is built with `TestUtils` (`createPage`, `createUser`,
   `loginAsSuperAdmin`, REST), never by driving the UI as a user would.
   (https://dev.xwiki.org/xwiki/bin/view/Community/Testing/#HBestPractices)
@@ -105,13 +109,12 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   *running* class's simple name — `NestedMyIT` once the test runs inside an `AllIT`, which is how CI
   runs it.
 - **Asserting whose rights code runs with — use Script Right, not Programming Right** — to check
-  in a functional test that some stored code runs with the rights of the right author (not with
-  those of a more privileged user who wrote the page's content, say), have the unprivileged author's
-  code output a value that only executed Velocity produces (`#set ($x = 'EXEC')${x}UTED`) and assert
-  it is absent. Standard users lack Script Right on XWiki 14.10+, so the assertion fails as soon as
-  the code runs with a privileged author's rights. A Programming Right check proves nothing here:
-  PRChecker (above) denies Programming Right to all wiki content, so the test passes with the bug
-  still in. Then run the test once against the unfixed code to see it fail.
+  in a functional test that some stored code runs with the rights of the right author (not a more
+  privileged author's), have the unprivileged author's code output a value that only executed
+  Velocity produces (`#set ($x = 'EXEC')${x}UTED`) and assert it is absent. Standard users lack
+  Script Right on XWiki 14.10+, so the assertion fails as soon as the code runs with a privileged
+  author's rights. A Programming Right check proves nothing here: PRChecker (above) denies
+  Programming Right to all wiki content, so the test passes with the bug still in.
 - **An `AllIT` container class carries a bare `@UITest`** — the Docker framework resolves the
   `@UITest` of the container class **and of every nested class** (walking each nested class's
   superclass chain) and merges them all into one configuration
@@ -120,22 +123,22 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   redundant, and repeating a scalar (`browser`, `database`, `servletEngine`, …) that a nested class
   also sets aborts the run with a `DockerTestException` as soon as the two values differ.
 - **Every functional test method carries `@Order`, in source order** — give each `@Test` of a
-  `@UITest` class an `@Order(n)`. `@UITest` orders methods with `MethodOrderer.OrderAnnotation`, and
-  methods without `@Order` all share its default value and run in an order JUnit deliberately
-  leaves unspecified. Keep the physical (source) order of the methods aligned with their `@Order`
-  values (1, 2, 3 …) so the file reads in execution order, and when adding a test, place it
-  according to its `@Order` value rather than simply appending it at the end. This fixes the order
-  only; it does not share a fixture (see the scenario rule above).
+  `@UITest` class an `@Order(n)`, even when it is the only one, so the next method added gets
+  `@Order(n+1)` rather than none. `@UITest` uses `MethodOrderer.OrderAnnotation`, under which methods
+  without `@Order` run in an order JUnit leaves unspecified. Keep the source order of the methods
+  aligned with their `@Order` values, and place a new method according to its value rather than
+  appending it. (https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/#HScenarios)
 - **A mandatory class in an `@OldcoreTest`** — to get a real XClass from its
   `MandatoryDocumentInitializer` (rather than mocking `BaseObject`s), list the initializer in
   `@ComponentList` and call `oldcore.getSpyXWiki().initializeMandatoryDocuments(context)` in the
   setup; `MockitoOldcore` does not run it on its own. The initializer then needs mocks of
   `ObservationManager`, `JobProgressManager`, `SheetBinder` named `document` and
   `ContextualLocalizationManager` (`DefaultIOServiceTest` in xwiki-platform-annotation-io and
-  `UpdatedDocumentMentionsAnalyzerTest` follow this pattern). `MockitoOldcore`'s save behaves like
-  the real store regarding authors: it sets the content author to the effective metadata author only
-  when the content is dirty, so a page saved by one user and then modified by another through its
-  objects only really has two different authors.
+  `UpdatedDocumentMentionsAnalyzerTest` follow this pattern).
+- **`MockitoOldcore`'s save sets authors like the real store** — it sets the content author to the
+  effective metadata author only when the content is dirty. A change made only through objects
+  dirties the metadata, so after one user saves a page and another modifies its objects, the content
+  author is still the first user and only the metadata author is the second.
 - **`@MockComponent` and an injected raw `Provider`** — a component injecting
   `Provider<SomeComponent>` (raw type) looks up the raw role, so a mock declared as
   `@MockComponent SomeComponent<?> mock` (a parameterized role) is not what the provider returns:

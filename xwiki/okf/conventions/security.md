@@ -3,9 +3,9 @@ title: Secure-coding conventions (escaping, untrusted input, right checks)
 stability: durable
 summary: How to escape user input and other untrusted values for each output context, why
   translation values are untrusted, which right each scripting language requires, the context-author
-  and pass-the-entity right-check rules and saving as author in script services, displaying rather
-  than parsing XObject properties, safe XML parsing, and never interpolating identifiers or
-  references into queries and include/display targets.
+  and pass-the-entity right-check rules, saving as author in script services and serializing a
+  possibly-null author, displaying rather than parsing XObject properties, safe XML parsing, and
+  never interpolating identifiers or references into queries and include/display targets.
 sources:
   - https://www.xwiki.org/xwiki/bin/view/Documentation/DevGuide/Security/
   - https://www.xwiki.org/xwiki/bin/view/Documentation/DevGuide/Scripting/
@@ -125,13 +125,10 @@ more privileged user merely views would store content in their name, which then 
 rights. `Document#save()` already falls back to the script's author in that case — reuse it or apply
 the same check.
 
-**Serializing an author.** The `document` `UserReferenceSerializer<DocumentReference>` resolves a
-`null` user reference to the **current user**, so passing an author that may be missing makes it
-whoever the code runs for. Check for `null` before calling it if the user reference is nullable.
-`GuestUserReference.INSTANCE` needs no special case: the serializer already turns it into
-`null`. As a `DocumentReference`, guest **is** `null` — there is no other value for it (the
-`XWiki.XWikiGuest` reference some old code uses is deprecated), so producing anything but `null` for
-guest is a bug.
+**Serializing an author.** The `document` `UserReferenceSerializer<DocumentReference>` turns a
+`null` user reference into the **current user**, so an author that may be missing becomes whoever
+the code runs for — check for `null` first. Guest needs no special case: it serializes to `null`,
+the only `DocumentReference` for guest (`XWiki.XWikiGuest` is deprecated).
 
 ## Rendering an XObject property — display it, never parse its raw value
 

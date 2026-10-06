@@ -160,12 +160,13 @@ means it needs nothing.
 | [`xwiki-ci-check`](xwiki/skills/xwiki-ci-check/) ⚠ | The daily sweep that *acts*: attributes each failure, comments on the culprit commit, opens fix PRs, files flicker issues, posts the digest | to analyse, nothing — but a red quality gate keeps its cause only with `SONARQUBE_TOKEN`, and a failing test its history only with a [Develocity key](docs/setup.md); the **bot** tokens to write (`GH_TOKEN_BOT`, `JIRA_TOKEN_BOT`, `MATRIX_*`) | `/xwiki-ci-check xwiki-platform, master only` |
 | [`xwiki-fix-sonarqube-issue`](xwiki/skills/xwiki-fix-sonarqube-issue/) | Fix a SonarCloud finding correctly (per-rule traps live in `okf/sonarqube/`) and open the PR | `SONARQUBE_TOKEN`, `SONARQUBE_PROJECT_KEY` | "fix a Sonar issue in this repo" |
 
-**Documentation** — all of these write to xwiki.org, so they read your credentials from `~/.xwiki-credentials`.
+**Documentation** — the ones that write to xwiki.org read your credentials from `~/.xwiki-credentials`.
 
 | Skill | What it does | Needs | Example |
 |---|---|---|---|
 | [`xwiki-doc-writing`](xwiki/skills/xwiki-doc-writing/) | Write, update or review an xwiki.org page per the Documentation Guide (Diataxis) | `~/.xwiki-credentials` | "document this feature" |
 | [`xwiki-doc-convert`](xwiki/skills/xwiki-doc-convert/) | Migrate an old page into the new `/documentation` tree, as a resumable plan | `~/.xwiki-credentials` | "convert the Skin Extensions page" |
+| [`xwiki-doc-export`](xwiki/skills/xwiki-doc-export/) | Export a `/documentation` subtree to one PDF in navigation order, optionally translated (official UI terms), re-translating only what changed since the last export — as a resumable plan | Chrome/Chromium; `pdftotext` for page numbers; an xwiki-platform checkout to translate | "export the XS user documentation to a German PDF" |
 | [`xwiki-release-documentation`](xwiki/skills/xwiki-release-documentation/) ⚠ | Audit a release's fixed issues: what needs a page, what needs a release note, then write both and fill the JIRA fields | `~/.xwiki-credentials`, `JIRA_API_TOKEN` | `/xwiki-release-documentation 18.8.0` |
 | [`xwiki-contrib-release-blog-post`](xwiki/skills/xwiki-contrib-release-blog-post/) | The "<Extension> Extension X.Y Released" blog post on xwiki.org | `~/.xwiki-credentials` | "announce the Jira extension 9.2 release" |
 | [`xwiki-presentation`](xwiki/skills/xwiki-presentation/) | Build a `.pptx` deck in the XWiki look, then PDF/PNG/Keynote | LibreOffice, [Python deps](xwiki/skills/xwiki-presentation/tools/requirements.txt) | "build a deck on XWiki 18.x for FOSDEM" |
@@ -186,7 +187,7 @@ means it needs nothing.
 | **`discourse` MCP** | forum.xwiki.org: search and read with no credential, post with one ([setup](docs/setup.md#forum-write-access-for-the-discourse-mcp-server)) |
 | **`develocity` MCP** | community.develocity.cloud: build scans, test outcomes, flaky history, cache hit rates ([setup](docs/setup.md#develocity-access-for-the-develocity-mcp-server-and-dv-test-history)) |
 | **`sonarqube` MCP** | SonarCloud issues and quality gates, per repo ([setup](docs/setup.md)) |
-| **IT slot limiter** (`xwiki/scripts/xwiki-it-slot.mjs`) | Caps concurrent Docker IT runs on one machine (2 by default). Several agents starting one at once starve the Docker daemon, and starvation surfaces as a `beforeAll` failure that reads like a product bug |
+| **IT slot limiter** (`xwiki/scripts/xwiki-it-slot.mjs`) | Caps concurrent Docker IT runs on one machine (2 by default). Several agents starting one at once starve the Docker daemon, and starvation surfaces as a `beforeAll` failure that reads like a product bug. Also runs testcontainers with a ryuk the daemon accepts, so runs on old XWiki parents stop leaking containers and networks |
 | **Repeat-run oracle** (`xwiki/scripts/xwiki-it-repeat.mjs`) | Runs one functional test N times on one configuration and reports the pass **rate** — a flicker is a probability, and "it passed" is not evidence that a fix worked. Keeps each failing repetition's report, screenshot and video |
 
 ## Setup

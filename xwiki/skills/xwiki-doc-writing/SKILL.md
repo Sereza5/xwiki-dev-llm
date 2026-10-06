@@ -1,6 +1,6 @@
 ---
 name: xwiki-doc-writing
-description: Write, update or review a page of XWiki documentation on xwiki.org, following the XWiki Documentation Guide (Diataxis type & audience, titles/page-names, page-structure fields, style, location, versioning). Use when authoring a NEW documentation page, updating an existing one, or reviewing a page for quality. Also use before DELETING any page on xwiki.org — deletion requires fixing the page's backlinks first. New documentation lives under https://www.xwiki.org/xwiki/bin/view/documentation/. To CONVERT old documentation (the Documentation space or the Extensions wiki) into the new tree, use xwiki-doc-convert instead; to sweep the fixed issues of a release and document what each one needs, use xwiki-release-documentation (which delegates the prose back to this skill).
+description: Write, update or review a page of XWiki documentation on xwiki.org, following the XWiki Documentation Guide (Diataxis type & audience, titles/page-names, page-structure fields, style, location, versioning). Use when authoring a NEW documentation page, updating an existing one, or reviewing a page for quality. Also use before DELETING any page on xwiki.org — deletion requires fixing the page's backlinks first. New documentation lives under https://www.xwiki.org/xwiki/bin/view/documentation/. To CONVERT old documentation (the Documentation space or the Extensions wiki) into the new tree, use xwiki-doc-convert instead; to export a subtree to a (translated) PDF, use xwiki-doc-export; to sweep the fixed issues of a release and document what each one needs, use xwiki-release-documentation (which delegates the prose back to this skill).
 ---
 
 # Writing, updating and reviewing XWiki documentation
@@ -234,7 +234,9 @@ Each finding cites the rule it relates to; confirm against the live guide when b
       uses a `language` parameter.
 - [ ] **Punctuation** — no em dash is doing the job of a comma, period, colon or parentheses. Dashes
       inside a **direct quote** are never a finding.
-- [ ] **Links** — link-reference syntax (no hardcoded xwiki.org URLs); `{{scm}}` for GitHub files.
+- [ ] **Links** — link-reference syntax (no hardcoded xwiki.org URLs); `{{scm}}` for GitHub files; a
+      JIRA issue is linked only for a bug or limitation that is still unresolved, never for the issue
+      that added a feature or fixed a bug.
 - [ ] **Location** — `documentation.xs` for a bundled extension, `documentation.extensions` otherwise;
       then the most relevant existing topic for its audience/type.
 - [ ] **Versioning** — written for the latest version; `{{version}}` only for new/changed behavior;

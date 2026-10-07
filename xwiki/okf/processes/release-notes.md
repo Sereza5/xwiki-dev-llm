@@ -47,10 +47,12 @@ Application`). An xwiki-contrib extension normally does **not** use it.
 Its release notes are the **Repository application's** per-version ones on extensions.xwiki.org: the
 `notes` property (pretty name "Release Notes") of the `ExtensionCode.ExtensionVersionClass` object on
 the version page `Extension.<Name>.Versions.<version>.WebHome`, rendered in the Versions section of
-the extension page (`https://extensions.xwiki.org/xwiki/bin/view/Extension/<Name>/#HVersions`). In
-practice that property holds a `{{jira}}` macro over the fix version, so the release note *is* the
-list of issues carrying that Fix Version — the shape a core *bugfix* release note has, for every
-release rather than only the bugfix ones.
+the extension page (`https://extensions.xwiki.org/xwiki/bin/view/Extension/<Name>/#HVersions`). For a
+multi-module **Project**, it is the Project's version page, with an `ExtensionCode.ProjectVersionClass`
+object. For a JIRA-tracked extension, that property holds a `{{jira}}` macro over the fix version, so
+the release note *is* the list of issues carrying that Fix Version: the shape a core *bugfix* release
+note has, here for every release. For an **OpenProject**-tracked one, no such macro exists yet, and the
+work packages are copied in by hand (format in the `xwiki-contrib-release` skill).
 
 So for a fixed issue of such an extension:
 

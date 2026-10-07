@@ -323,16 +323,17 @@ The fields:
 
   Highlights are **recommended once a page has more than 15 child pages**, with a **maximum of 6**
   highlights — on documentation pages and landing pages alike. "Child pages", "rows of the automatic
-  *More* table" and the guide's former "pages in the LiveTable" all mean the same set. **No automatic
-  documentation check enforces any of this** (the checks cover FAQ size, images, videos, attachments,
-  page names/titles, syntax and verbs — never Highlights), so it is a convention reviewers uphold, not
-  a gate. Source of truth:
+  *More* table" and the guide's former "pages in the LiveTable" all mean the same set. The `highlights`
+  check enforces the maximum and the syntax; only the threshold is left to reviewers. Source of truth:
   [Highlights on a Page](https://dev.xwiki.org/xwiki/bin/view/Community/DocGuide/HighlightsPage/).
 - **More** — **automatic**; a filterable livedata table of the page's **child** pages plus a search
   box. Nothing to fill. Highlights are displayed inside this section.
 - **Related links** — links to pages with related content that are **NOT children** of this page. A
-  child belongs in **Highlights**, never here. Two further rules:
+  child belongs in **Highlights**, never here. Further rules:
   - **A `related` field must never link to its own page.**
+  - **A top-level page** (directly under an audience page) **must link to its same-topic counterparts for
+    the other audiences**, when they exist.
+  - **Labels are `<exact page title> (for <target>)`**, `<target>` being User, Administrator or Developer.
   - **After a restructure, re-check it.** Moving a page *in* under a hub turns it into a child, which
     silently puts it in breach of the not-children rule inside that hub's `related` — the link still
     resolves, so no broken-reference sweep can detect it. The check a restructure needs is not only

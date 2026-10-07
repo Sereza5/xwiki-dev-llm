@@ -8,6 +8,7 @@ summary: Use the next release of the current dev version, written <X.Y.0>RC1, fo
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/VersioningAndReleasePractices/
   - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HDeprecation
+  - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HUseone40sinceperversion
 ---
 
 # API versioning (`@since` / `@Deprecated`)
@@ -33,16 +34,11 @@ A division of labour between the annotation and the Javadoc tag:
   oldest): each version-line in which the deprecation shipped belongs in the list. No ordering is
   prescribed, so keep the order the source used.
 
-**Backporting adds `@since` lines, it does not replace them.** When an API is backported to stable
-branches, list one `@since` line per version-line where it becomes available, keeping the original
-(e.g. `@since 17.10.10` / `@since 18.4.3` / `@since 18.5.0RC1`). Make the block **identical on every
-branch** the code lives on (master included).
-
-**The order of the `@since` lines doesn't matter, but write them ascending.** XWiki's best practices
-define one `@since` per version ([devs list, Sep 2016](https://www.mail-archive.com/devs@xwiki.org/msg32814.html))
-but no order, and the code has both orders. So never flag a block's order in a review and never
-reorder an existing block just for its order; but when you write a block or add lines to one, list
-them **ascending by version number**.
+**Backporting adds `@since` lines, it does not replace them.** List one `@since` line per
+version-line where the API becomes available, keeping the original, and make the block **identical
+on every branch** the code lives on (master included). Write the lines **ascending** (`@since 17.10.10`
+/ `@since 18.4.3` / `@since 18.5.0RC1`), but the order is not an XWiki rule: never flag or reorder an
+existing block for it.
 
 **`@since` goes on reusable code, not only on public API.** Anything something else calls carries
 `@since` — including `internal` classes and methods, and the *tools* tests are written with: page

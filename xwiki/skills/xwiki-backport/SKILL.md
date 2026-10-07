@@ -138,9 +138,10 @@ Backporting **adds** `@since` lines, it never replaces the existing ones. Two th
   backport); if the source's block is missing a line, fix it there too (a separate `@since` commit /
   PR on the source branch) — otherwise the branches drift.
 
-Decide the lines **empirically**, one per version-line, keeping the order the block already uses
-(none is prescribed): inspect what each branch already carries (`git show origin/<branch>:<path>` for
-the file) and add only the missing lines. **Never invent an `@since`** where the source code did not already have one.
+Decide the lines **empirically**, one per version-line, **ascending** by version number (the order
+itself doesn't matter, so never reorder existing lines just for it): inspect what each branch already
+carries (`git show origin/<branch>:<path>` for the file) and add only the missing lines. **Never invent
+an `@since`** where the source code did not already have one.
 
 For the exact format and *which elements* carry `@since` (reusable classes/members — `internal` ones
 and test tools such as page objects and test frameworks included — versus the tests themselves, which

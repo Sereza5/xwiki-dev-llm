@@ -31,17 +31,18 @@ A division of labour between the annotation and the Javadoc tag:
 - **A deprecation done on several branches lists ALL of its versions in `since`, comma-separated** —
   `@Deprecated(since = "15.5RC1,14.10.12")`. Do **not** pick one of them (neither the newest nor the
   oldest): each version-line in which the deprecation shipped belongs in the list. No ordering is
-  prescribed, so keep the order the source used — as for the `@since` block below.
+  prescribed, so keep the order the source used.
 
 **Backporting adds `@since` lines, it does not replace them.** When an API is backported to stable
 branches, list one `@since` line per version-line where it becomes available, keeping the original
-(e.g. `@since 18.5.0RC1` / `@since 18.4.3` / `@since 17.10.10`). Make the block **identical on every
+(e.g. `@since 17.10.10` / `@since 18.4.3` / `@since 18.5.0RC1`). Make the block **identical on every
 branch** the code lives on (master included).
 
-**No order is prescribed for the `@since` lines.** The devs agreed on one `@since` per version
-([devs list, Sep 2016](https://www.mail-archive.com/devs@xwiki.org/msg32814.html)) but not on an
-order, and the code uses both (descending is the more common). Keep the order the block already uses
-and add the new line where it fits that order; do not reorder an existing block.
+**The order of the `@since` lines doesn't matter, but write them ascending.** XWiki's best practices
+define one `@since` per version ([devs list, Sep 2016](https://www.mail-archive.com/devs@xwiki.org/msg32814.html))
+but no order, and the code has both orders. So never flag a block's order in a review and never
+reorder an existing block just for its order; but when you write a block or add lines to one, list
+them **ascending by version number**.
 
 **`@since` goes on reusable code, not only on public API.** Anything something else calls carries
 `@since` — including `internal` classes and methods, and the *tools* tests are written with: page

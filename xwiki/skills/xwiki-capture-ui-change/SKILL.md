@@ -1,6 +1,6 @@
 ---
 name: xwiki-capture-ui-change
-description: Capture the "before" screenshot of an XWiki UI change - the one the branch can no longer produce - by running the released version's Docker image, or else building and deploying the pre-fix code on a local instance, then screenshotting the same fixture in both states. EXPENSIVE (minutes for the Docker image, a module build and two instance restarts otherwise) and NARROW — use it only for a fix to EXISTING UI whose visual difference is too subtle to see without the two states side by side (a corner radius, a spacing or alignment shift, a colour, a wrong icon). Do NOT use it for a new feature, a redesign, or any change a reader can see in a single screenshot - those need no "before" and are shown with an ordinary screenshot. Requires explicit user approval before running. For deploying an extension without a comparison use xwiki-deploy-extension; for Maven commands use xwiki-build; for the PR/JIRA screenshot conventions use xwiki-pull-request.
+description: Capture the "before" screenshot of a fix to existing XWiki UI when the branch can no longer produce it (the fix is already in the working tree) - on the released version's Docker image, or by building and deploying the pre-fix code on a local instance - and shoot the same fixture in both states. Costs minutes to tens of minutes, so propose it and run it only with the user's explicit approval. Not for a new feature or a redesign (there is no "before"), nor when the bug can still be shot on a running instance before applying the fix. For deploying an extension without a comparison use xwiki-deploy-extension; for Maven commands use xwiki-build; for the PR/JIRA screenshot conventions use xwiki-pull-request.
 ---
 
 # Capture an XWiki UI change
@@ -11,21 +11,11 @@ The deliverable is **the "before" screenshot** — the state your branch can no 
 because the fix is already in the working tree. Everything else here exists to reach that state
 safely. The "after" is trivial; you can shoot it at any time.
 
-That is worth the setup below only when **the difference is too subtle to see without both states
-in front of you**: a corner radius, a 2px alignment shift, a colour, a
-wrong icon, a spacing regression. That is the CSS/usability work this pays off on.
-
-Do **not** run it for:
-
-- **a new feature** — there is no "before" to capture, and a red "before" panel next to a green
-  "after" reads as a regression that never happened;
-- **a redesign or a substantial improvement** — a single "after" screenshot already shows the
-  reader what changed;
-- **anything visible at a glance** — if one screenshot communicates it, one screenshot is the
-  right answer.
-
-In all three cases take an ordinary screenshot of the result and follow `xwiki-pull-request`'s
-"Screenshots & Video" rule. Do not reach for this skill.
+When the bug can still be shot — on a running instance, before applying the fix — do that
+instead: it needs none of the setup below. And do **not** run this for a new feature or a redesign:
+there is no "before" to capture, and a "before" panel next to the "after" reads as a regression that
+never happened. Take an ordinary screenshot of the result and follow `xwiki-pull-request`'s
+"Screenshots & Video" rule.
 
 **Ask the user before starting.** This costs a released-version Docker instance (a few minutes),
 or else a Maven build (minutes to tens of minutes) and two instance restarts, plus a bespoke capture
@@ -36,11 +26,11 @@ The two file-copy paths below are the exception — seconds, no build — but st
 
 This skill only ever *reads* git state. It must never run `git commit`, `git add`, `git push`,
 `git checkout <branch>` or `--amend` against the repo the user is working in. The jar route of
-step 3 covers both cases without committing: `HEAD` builds the working tree exactly as it sits,
-uncommitted changes and all, and any other commit-ish is built in a throwaway worktree removed
-afterwards. If the fix is not committed yet, that is **not** a reason to commit it — use `HEAD`
-for the "after". An agent following an earlier draft of this procedure amended the user's own
-commit trying to "make the before/after refs work".
+step 3 covers both cases without committing: `REF=WORKTREE` builds the working tree exactly as it
+sits, uncommitted changes and all, and any commit-ish (`HEAD` included) is built in a throwaway
+worktree removed afterwards. If the fix is not committed yet, that is **not** a reason to commit
+it — the "after" is `WORKTREE` and the "before" is `HEAD`. An agent following an earlier draft of
+this procedure amended the user's own commit trying to "make the before/after refs work".
 
 ## Environment, for every route below
 
@@ -98,9 +88,10 @@ runs with a well-known `superadmin` password. Four things about the image are no
   in its own `BEFORE_URL`; `XWIKI_BASE_URL` stays the branch's instance, which step 0 waits on.
 - **It starts as an empty wiki** that sends every request, REST included, to the Distribution
   Wizard. Skip the wizard: enable `superadmin`, turn off the wizard's automatic start, restart, and
-  install the flavor as `superadmin:system` with `xwiki-deploy-extension`'s `installjobrequest.xml`,
-  filled with extension `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki` and
-  version `$V` (its namespace `wiki:xwiki` is already right). The job downloads from
+  install the flavor as `superadmin:system` with the install-job request body of
+  `xwiki-deploy-extension`, saved as `$CAPTURE_DIR/installjobrequest.xml` and filled with extension
+  `org.xwiki.platform:xwiki-platform-distribution-flavor-mainwiki` and version `$V` (its namespace
+  `wiki:xwiki` is already right). The job downloads from
   extensions.xwiki.org and takes a couple of minutes.
 - **The wizard also creates `XWiki.Admin`**, and the flavor's pages name it as their author.
   Skipped, it does not exist, so every script those pages hold fails to render ("the execution of
@@ -121,7 +112,7 @@ for i in $(seq 1 60); do
 done
 [ -n "$UP" ] || echo "not up after 3min, check: docker logs xwiki-before"
 curl -s -u superadmin:system -X PUT -H "Content-Type: text/xml" \
-  --upload-file installjobrequest.xml "$BEFORE_URL/rest/jobs?jobType=install&async=false" \
+  --upload-file "$CAPTURE_DIR/installjobrequest.xml" "$BEFORE_URL/rest/jobs?jobType=install&async=false" \
   | grep -o '<state>[^<]*</state>'   # expect FINISHED
 P="$BEFORE_URL/rest/wikis/xwiki/spaces/XWiki/pages"
 X=(-s -o /dev/null -w '%{http_code}\n' -u superadmin:system -H "Content-Type: application/xml")
@@ -147,20 +138,21 @@ Prerequisites: a prebuilt XWiki jetty+hsqldb distribution (building one takes 30
 copy an existing one), and the `agent-browser` skill. Check before starting, not three steps in:
 
 ```bash
-pgrep -af 'STOP.KEY=xwiki'; lsof -nP -iTCP:8080 -sTCP:LISTEN   # something already running?
-ls "$INSTANCES"                                                 # something to copy?
-agent-browser --version                                         # else load its skill to install
+lsof -nP -iTCP:8080 -sTCP:LISTEN   # something already running?
+ls "$INSTANCES"                    # something to copy?
+agent-browser --version            # else load its skill to install
 ```
 
 The jar route stops and restarts the instance it deploys into, so check *whose* instance is on the
 port first. **Never stop an XWiki instance this session did not start** — the rule `xwiki-build`
 states for Docker ITs applies here unchanged. If nothing is listening, start one and wait for it
 (~40s); a capture against a half-started Jetty fails in confusing ways. `setsid` takes the JVM out
-of the shell's session, without which a tool harness waits on the server for as long as it lives
-(it is Linux-only; on macOS a plain `nohup … &` is enough):
+of the shell's session, without which a tool harness waits on the server for as long as it lives;
+it is Linux-only, and on macOS a plain `nohup … &` is enough:
 
 ```bash
-(cd "$INSTANCE_DIR" && setsid nohup ./start_xwiki.sh < /dev/null > xwiki-start.log 2>&1 &)
+DETACH=$(command -v setsid || true)
+(cd "$INSTANCE_DIR" && $DETACH nohup ./start_xwiki.sh < /dev/null > xwiki-start.log 2>&1 &)
 UP=""
 for i in $(seq 1 60); do
   curl -sf -o /dev/null "$XWIKI_BASE_URL/bin/view/Main/WebHome" && { UP=1; break; }
@@ -198,6 +190,11 @@ Do not spend 30-60 minutes copying a version-matched distribution for a file cop
 hits `InstallException: Dependency [...] is not compatible with core extension feature [...]`, the
 instance has drifted from the branch's version: use a version-matched distribution.
 
+**A translation key is not a static file.** When the fix also adds a key to a `.properties` bundle
+(e.g. `ApplicationResources.properties`, inside an oldcore jar) and its text is visible, the
+file-copy paths alone shoot a raw key or a blank label, which reads as a bug in the fix: deploy the
+bundle's module by the jar route as well.
+
 One change can span several rows (a xar module *and* a war module's CSS). Run each script per
 piece, against the same instance.
 
@@ -234,9 +231,9 @@ agent-browser --session capture eval "document.querySelector('#globalsearch').ou
 
 Run this once per state, with the deploy route the table in step 1 picked.
 
-**The jar route** is three steps other skills already own, for `REF=HEAD` or any commit-ish:
+**The jar route** is three steps other skills already own, for `REF=WORKTREE` or any commit-ish:
 
-1. **Build** at `REF` — the working tree itself for `HEAD`, otherwise a throwaway worktree, as
+1. **Build** at `REF` — the working tree itself for `WORKTREE`, otherwise a throwaway worktree, as
    `xwiki-backport` makes one. Build per `xwiki-build`: `xmvn` for the JDK the branch targets
    (these are old commits, the likeliest to target an older Java), and a `-legacy` module that
    weaves the changed one rebuilt too, since its woven jar is what ships. Use `package`, never
@@ -244,15 +241,19 @@ Run this once per state, with the deploy route the table in step 1 picked.
    current SNAPSHOT. A first build can outlast a tool harness's per-command ceiling, so run it in
    the background and wait on its output.
 2. **Swap** the jar, per `xwiki-deploy-extension` step 0: a core extension is replaced in place in
-   `WEB-INF/lib`, under its own file name. No file of that name there means the module does not
-   ship as that jar — find the one holding the changed class before going further.
+   `WEB-INF/lib`, under the file name already there: the instance's version can differ from the
+   branch's, and copying under the built name would add a second jar rather than replace the first.
+   No jar of that artifactId there means the module does not ship as that jar — find the one
+   holding the changed class before going further.
 3. **Restart** the instance, with step 0's stop and start, then remove the worktree.
 
 ```bash
 MODULE=xwiki-platform-core/.../xwiki-platform-index-tree-webjar   # relative to the repo root
-SRC=.; [ "$REF" = HEAD ] || { SRC="$WORK/ref-worktree"; git worktree add --detach "$SRC" "$REF"; }
+SRC=.; [ "$REF" = WORKTREE ] || { SRC="$WORK/ref-worktree"; git worktree add --detach "$SRC" "$REF"; }
 (cd "$SRC/$MODULE" && xmvn package -B -ntp -DskipTests)      # mvn where xmvn is not installed
-cp "$SRC/$MODULE"/target/<artifactId>-<version>.jar "$INSTANCE_DIR"/webapps/xwiki/WEB-INF/lib/
+LIB="$INSTANCE_DIR"/webapps/xwiki/WEB-INF/lib; DEPLOYED=$(ls "$LIB"/<artifactId>-[0-9]*.jar)
+[ -e "$CAPTURE_DIR/original.jar" ] || cp "$DEPLOYED" "$CAPTURE_DIR/original.jar"   # step 4 restores it
+cp "$SRC/$MODULE"/target/<artifactId>-<version>.jar "$DEPLOYED"
 (cd "$INSTANCE_DIR" && ./stop_xwiki.sh)   # then step 0's start and wait
 [ "$SRC" = . ] || git worktree remove --force "$SRC"
 ```
@@ -273,9 +274,10 @@ agent-browser --session capture eval "(() => {
 Two lines like that are the proof the states differ, they cost no vision tokens, and they are
 stronger evidence than a screenshot pair that merely *looks* different. **Address the element by
 name, never by position** — a positional selector is the classic way to read a value that never
-changes, which looks exactly like a failed deploy (`references/gotchas.md`). On the file-copy paths
-also grep the instance, since `sync-static-resource.sh` prints `synced` unconditionally:
-`grep -c btn-group-last "$INSTANCE_DIR"/webapps/xwiki/skins/flamingo/previewactions.vm`.
+changes, which looks exactly like a failed deploy (`references/gotchas.md`).
+
+On the file-copy paths also grep the instance, since `sync-static-resource.sh` prints `synced`
+unconditionally: `grep -c btn-group-last "$INSTANCE_DIR"/webapps/xwiki/skins/flamingo/previewactions.vm`.
 
 Then shoot, with `docshot.sh` and no red box: that is a plain crop of an `x,y,w,h` viewport region,
 saved at its own width with no resampling. Compute the region **once**, in the first state, and
@@ -294,7 +296,8 @@ REGION=$(agent-browser --session capture eval "(() => {
   }
   throw new Error('no selector matched'); })()" | tr -d '"')
 [ -n "$REGION" ] || echo "no region: the eval failed, and \$( | tr) hides its status"
-"$DOCSHOT" "$state" "$(cut -d, -f3 <<<"$REGION")" "$REGION"   # -> $CAPTURE_DIR/$state.png
+STATE=before   # or after
+"$DOCSHOT" "$STATE" "$(cut -d, -f3 <<<"$REGION")" "$REGION"   # -> $CAPTURE_DIR/$STATE.png
 ```
 
 Include enough recognizable chrome (a page title, a toolbar, a panel header) that a reader
@@ -311,10 +314,13 @@ never sends one. Any page or object the fixture has to create beforehand is a RE
 
 ## 4. Run both states, then restore
 
-Step 3 runs three times: **after** (`HEAD` → `$CAPTURE_DIR/after.png`), **before**
-(`<fix-commit>~1` → `$CAPTURE_DIR/before.png`), then **restore** (`HEAD` again, so the instance you
-leave behind matches the branch — do not skip this). If the fix is not committed, use `HEAD` for
-both and ask the user to commit first, per the git-safety rule above.
+Step 3 runs twice: **after** (`WORKTREE` → `$CAPTURE_DIR/after.png`), then **before**
+(`<fix-commit>~1`, or `HEAD` when the fix is uncommitted → `$CAPTURE_DIR/before.png`).
+
+Then **restore** — do not skip it: put back what the instance had before the first swap, so the
+instance you leave behind is the one you found. On the jar route that is a copy and step 0's
+restart, no build: `cp "$CAPTURE_DIR/original.jar" "$DEPLOYED"`. On the file-copy paths the
+"before" sync already put the pre-fix files back.
 
 **The assertion log lines are the authority**, and they need nothing installed. If they are
 identical, stop: the cause is a deploy that did not land or a selector on the wrong node, not a

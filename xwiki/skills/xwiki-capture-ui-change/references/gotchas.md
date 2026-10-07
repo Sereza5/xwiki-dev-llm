@@ -53,13 +53,6 @@ both cheaper and better evidence than a picture.
   is on disk when the build runs, so if the checked-out commit changes underneath you mid-build -
   the user switching branches in their IDE - the swap "succeeds" and lands the wrong code. `git log
   -1` afterwards will not tell you what was on disk at build time.
-- A branch rebased since it was opened can sit on a newer `${project.version}` than a cached test
-  instance. That breaks the Extension Manager's install job for xar modules (`InstallException:
-  Dependency [...] is not compatible with core extension feature [...]`), and so the
-  `xwiki-deploy-extension` route SKILL.md sends you to; the fix is a version-matched distribution.
-- A stale pre-built `.min.css`/`.min.js` sibling is served in preference to the raw file whenever a
-  template loads it via `$xwiki.get('ssfx').use('path/to/foo.css', true)`, so overwriting only the
-  raw file has zero visible effect. `sync-static-resource.sh` refreshes both.
 - After a restart, `start_xwiki.sh` appears in `pstree` as a *child* of the `java` process it
   launched, with a `sleep` grandchild. Benign: it forks a lock-file watcher, then `exec`s into
   `java`, replacing its own PID. Not an auto-restart loop; do not chase it.

@@ -74,7 +74,9 @@ Then:
 
 1. Create/edit the OKF file under the correct subdirectory, with frontmatter:
    `title`, `stability` (`durable`|`volatile`), `summary`, and `sources:` (the dev-wiki URL(s) it
-   derives from). For volatile facts add a `verify:` line and store the recipe, not the value.
+   derives from). An XWiki dev best practice cites **only official dev.xwiki.org pages**, in `sources:`
+   and in the body — never a devs-list or forum thread, even the one where it was decided; that history
+   goes in the PR description. For volatile facts add a `verify:` line and store the recipe, not the value.
    Cross-link related entries with `[[name]]` (the target file's basename without extension).
 2. **Update `okf/index.md`** — the topic line, described in full; this is the map that gets read.
    Then add the topic's **name** to the mirrored map in `instructions/xwiki-org.md`, and nothing

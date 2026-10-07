@@ -49,7 +49,8 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **dependencies** — the checklist a third-party project must pass before a distribution depends on
   it; and upgrading a JavaScript one, whose lockfile the build's pinned pnpm rewrites.
 - **commit-messages** — the format of a commit summary and body, and when `[Misc]` is allowed.
-- **versioning** — which version string `@since` and `@Deprecated(since=…)` take.
+- **versioning** — which version string `@since` and `@Deprecated(since=…)` take, and an issue's
+  affected version (JIRA and OpenProject).
 - **backward-compatibility** — what a public API may change, what Revapi checks, the `@Unstable`
   lifecycle, and evolving an interface with default methods.
 - **security** — writing scripts, templates and queries safely: escaping, untrusted input, the rights

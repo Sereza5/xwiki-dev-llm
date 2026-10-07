@@ -32,6 +32,11 @@ The documented format is:
 - Corollary: the title is reused verbatim on every commit referencing the issue, so **it must read
   well as a commit summary**. Word it with that in mind (JIRA's own "use nice user-friendly titles"
   rule pushes the same way), and do not reword it casually afterwards.
+- **A repo tracked on OpenProject** (op.xwiki.org) instead of JIRA — some contrib projects, e.g.
+  `xwiki-contrib/documentation` (project `DA`) — uses the work package's **project-based id** as the
+  key: `DA-96: <the work package subject>`. That id is the API's `displayId` (`<PROJECT>-<n>`), not
+  the instance-wide numeric `id`, and the old `OP#<n>` form is wrong since the instance switched to
+  project-based ids. See the `xwiki-openproject` skill.
 - Use **`[Misc]`** when there is genuinely no issue. The dev wiki scopes this to trivial things —
   "adding a small javadoc, renaming a single variable, cosmetic changes, ignore files". The test for
   whether an issue is required is *"is my change going to affect any user or any extension developer
@@ -62,11 +67,14 @@ The documented format is:
     backticks; avoid bare `@` tokens when *writing the JIRA issue title* instead. And the `(#6304)`
     GitHub's squash merge appends is its own correct reference to the merged PR, not yours to escape.
 
-Issue tracker is https://jira.xwiki.org (NOT GitHub Issues); see [[jira]] for access and the
-issue-field conventions. For the full PR/commit flow (one squashed commit per issue, PR description,
-backports) use the `xwiki-pull-request` skill.
+Issue tracker is https://jira.xwiki.org (NOT GitHub Issues), or op.xwiki.org for the few repos
+tracked there; see [[jira]] for access and the issue-field conventions. For the full PR/commit flow
+(one squashed commit per issue, PR description, backports) use the `xwiki-pull-request` skill.
 
 **Security fixes are the exception:** until an issue is officially disclosed, the public commit
 message must be **obfuscated** — describe the mechanical change, never that it closes a vulnerability
-or how it was exploitable. This overrides the copy-the-title rule, since the title would leak the
-nature of the issue. See [[security-policy]].
+or how it was exploitable. Obfuscate only the message *content*: **keep the `XWIKI-NNNNN:` key**
+(it discloses nothing on its own and preserves traceability to the restricted issue and the
+backports), and replace just the verbatim title with the neutral description. So it overrides the
+copy-the-title rule only — not `[Misc]`, not a dropped key — since the title would leak the nature of
+the issue. See [[security-policy]].

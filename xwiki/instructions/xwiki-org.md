@@ -55,7 +55,7 @@ follows.
 ## Code conventions
 
 - **Lines must not exceed 120 characters** — that is a rule about *source*. Never hard-wrap prose:
-  a paragraph on an xwiki.org page or a forum post is one unbroken line.
+  a paragraph on an xwiki.org page, a forum post or a GitHub PR/advisory body is one unbroken line.
 - LGPL license headers are required on every source file — run `mvn license:format -B -ntp` to add
   missing headers.
 - In new code, prefer the `jakarta.*` namespaces over `javax.*` (the project is migrating

@@ -54,10 +54,7 @@ below). When filing/curating a bug, set:
 
 - **Component/s** — always set at least one (e.g. `REST`, `Rendering`, `Platform - …`). Required for
   triage; do not leave empty.
-- **Affects Version/s** — the **oldest** released version in which the bug is present. When the buggy
-  code is ancient and pinning the exact oldest release is impractical/too slow, fall back to the
-  **last (most recent) XWiki LTS version that the issue affects**. **Never** just use the latest
-  released version — that understates the range and defeats backport triage.
+- **Affects Version/s** — the oldest released version that has the bug, per [[versioning]].
 - **Fix Version/s** — the version the fix ships in: normally the next release of the current dev
   version. Note the naming: JIRA version names use dashes (e.g. `18.7.0-rc-1`), whereas the source
   `@since` / `@Deprecated(since=…)` tag for the *same* release uses `18.7.0RC1` — see [[versioning]]

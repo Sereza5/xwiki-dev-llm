@@ -202,7 +202,10 @@ unbounded cache, and per-request work whose result never changes.
 `xwiki-fix-flickering-docker-test` when the change touches Docker `@UITest` code, and
 `xwiki-increase-test-coverage` when a module's tests changed. Look at: what behaviour the change
 introduces and whether a test now covers it, which level of test was chosen, and — for functional
-tests — the patterns those skills call out as flicker-prone. A new `@Test` method, or a new `*IT`
+tests — the patterns those skills call out as flicker-prone, and every new or edited `*IT` method
+that knows the HTML or JavaScript, including a `By` handed to a page-object method (page-object
+boundary in `okf/testing/strategy.md`), and every wait the test performs right after a page-object
+action that the action itself could have done ("a page-object action waits for its own outcome"). A new `@Test` method, or a new `*IT`
 class, that rebuilds a fixture an existing one in the same module already builds is itself a
 finding: functional tests are scenarios, and the fixture is what costs (scenario rule in
 `okf/testing/strategy.md`).

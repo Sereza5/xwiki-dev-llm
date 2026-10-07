@@ -1,9 +1,10 @@
 ---
-title: API versioning (@since / @Deprecated)
+title: Versions in code and issues (@since / @Deprecated, affected version)
 stability: durable
 summary: Use the next release of the current dev version, written <X.Y.0>RC1, for @since and
   @Deprecated(since=…). The current version itself is volatile — read it from pom.xml. A deprecation
-  done on several branches lists ALL its versions, comma-separated, in the annotation.
+  done on several branches lists ALL its versions, comma-separated, in the annotation. An issue's
+  affected version is the oldest released version that has the problem.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/VersioningAndReleasePractices/
   - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HDeprecation
@@ -58,3 +59,12 @@ XWiki Commons, XWiki Rendering and XWiki Platform are **released together with t
 so the same version string applies across those repos.
 
 See also [[backward-compatibility]] for the `@Unstable` lifecycle that pairs with `@since`.
+
+## Affected version of an issue
+
+Whatever the tracker — JIRA's **Affects Version/s**, OpenProject's **Observed in versions** — set the
+**oldest released version that has the problem**, never just the latest release: that understates the
+range and defeats backport triage. For a bug, it is the first release containing the faulty code
+(`git tag --contains <commit>`); for a missing feature, the first release containing what it builds on.
+If that predates the versions the tracker defines, use its oldest one; if pinning it is impractical,
+fall back to the last LTS that has the problem (the LTS: [[jira]]).

@@ -34,15 +34,24 @@ it here.
 
 ## Workflow
 
+**Work package ids.** The instance uses **project-based ids**: every work package has a `displayId`
+`<PROJECT>-<n>` (e.g. `DA-96` in the Documentation Application project) next to its instance-wide
+numeric `id`. The `displayId` is the one people see and the one to write anywhere a human reads it —
+replies, commit messages, PR titles and bodies (`DA-96: <subject>`), links
+(`https://op.xwiki.org/work_packages/DA-96`). Never write `OP#<n>`: that is the numeric id in a form
+the instance no longer uses. The REST paths accept either (`/api/v3/work_packages/DA-96` works),
+while `_links` hrefs carry the numeric one.
+
 **Creating a work package:**
 1. **Search first**, so you do not file a duplicate.
 2. Resolve the project, then pick a type from the types that project enables. A project with no
    types enabled cannot hold work packages at all, so check before drafting.
-3. Draft `subject` and a Markdown `description` describing the work in user-visible terms.
+3. Draft `subject` and a Markdown `description` describing the work in user-visible terms, and set
+   **Observed in versions** per `okf/conventions/versioning.md`.
 4. **Run the create form** and show the user the drafted fields, the defaults it resolved and any
    validation errors.
-5. On approval, POST the real endpoint. Report the returned id and
-   `https://op.xwiki.org/work_packages/{id}`.
+5. On approval, POST the real endpoint. Report the returned `displayId` and
+   `https://op.xwiki.org/work_packages/{displayId}`.
 
 **Updating a work package:**
 1. **GET it first** — never assume the current subject, status, assignee or type. Keep its

@@ -84,6 +84,11 @@ Step 2, which reads the same section live.
   raise to Critical below the threshold for high system impact or another strong argument, and an
   actively-exploited issue may be classed **Blocker**.
 
+The JIRA issue records the result in **"CVSS Vector"** (`customfield_11870`) and **"CVSS Score"**
+(`customfield_11871`, a **number** — `8.7`, not `"8.7"` — the one the vector computes to). Update
+both with `PUT /rest/api/2/issue/<KEY>` and
+`{"fields": {"customfield_11870": "CVSS:4.0/…", "customfield_11871": 8.7}}`.
+
 ## Related
 
 - [[security]] — the secure-coding conventions (escaping, untrusted input, right checks) that prevent

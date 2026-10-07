@@ -324,7 +324,8 @@ The fields:
   Highlights are **recommended once a page has more than 15 child pages**, with a **maximum of 6**
   highlights — on documentation pages and landing pages alike. "Child pages", "rows of the automatic
   *More* table" and the guide's former "pages in the LiveTable" all mean the same set. The `highlights`
-  check enforces the maximum and the syntax; only the threshold is left to reviewers. Source of truth:
+  check enforces the threshold (counting only child *documentation* pages), the maximum and the syntax,
+  but never sees landing pages, which carry no `DocumentationClass`. Source of truth:
   [Highlights on a Page](https://dev.xwiki.org/xwiki/bin/view/Community/DocGuide/HighlightsPage/).
 - **More** — **automatic**; a filterable livedata table of the page's **child** pages plus a search
   box. Nothing to fill. Highlights are displayed inside this section.
@@ -332,7 +333,8 @@ The fields:
   child belongs in **Highlights**, never here. Further rules:
   - **A `related` field must never link to its own page.**
   - **A top-level page** (directly under an audience page) **must link to its same-topic counterparts for
-    the other audiences**, when they exist.
+    the other audiences**, when they exist — the `topLevelRelatedLinks` check matches them by page name,
+    within the same section.
   - **Labels are `<exact page title> (for <target>)`**, `<target>` being User, Administrator or Developer.
   - **After a restructure, re-check it.** Moving a page *in* under a hub turns it into a child, which
     silently puts it in breach of the not-children rule inside that hub's `related` — the link still

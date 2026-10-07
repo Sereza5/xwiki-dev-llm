@@ -39,8 +39,9 @@ of truth and changes over time — fetch it when actually releasing.
   excluded: naming it implies a support commitment that does not exist. List the targets and stop.
 - Released artifacts and snapshots are published to **nexus.xwiki.org** (see [[index]] in
   `servers/`); the Extension Manager consumes them.
-- xwiki-contrib extensions follow their **own** release + documentation process, including a release
-  blog post — use the `xwiki-contrib-release-blog-post` skill for that step.
+- xwiki-contrib extensions follow their **own** release + documentation process — use the
+  `xwiki-contrib-release` skill, which hands the release blog post off to
+  `xwiki-contrib-release-blog-post`.
 
 ## Volatile — follow the pointer, do not cache
 

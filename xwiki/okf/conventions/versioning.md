@@ -8,6 +8,7 @@ summary: Use the next release of the current dev version, written <X.Y.0>RC1, fo
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/VersioningAndReleasePractices/
   - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HDeprecation
+  - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HUseone40sinceperversion
 ---
 
 # API versioning (`@since` / `@Deprecated`)
@@ -31,12 +32,13 @@ A division of labour between the annotation and the Javadoc tag:
 - **A deprecation done on several branches lists ALL of its versions in `since`, comma-separated** —
   `@Deprecated(since = "15.5RC1,14.10.12")`. Do **not** pick one of them (neither the newest nor the
   oldest): each version-line in which the deprecation shipped belongs in the list. No ordering is
-  prescribed, so keep the order the source used — unlike the `@since` block below, which is ascending.
+  prescribed, so keep the order the source used.
 
-**Backporting adds `@since` lines, it does not replace them.** When an API is backported to stable
-branches, list one `@since` line per version-line where it becomes available, **ascending by version
-number**, keeping the original (e.g. `@since 17.10.10` / `@since 18.4.3` / `@since 18.5.0RC1`). Make
-the block **identical on every branch** the code lives on (master included).
+**Backporting adds `@since` lines, it does not replace them.** List one `@since` line per
+version-line where the API becomes available, keeping the original, and make the block **identical
+on every branch** the code lives on (master included). Write the lines **ascending** (`@since 17.10.10`
+/ `@since 18.4.3` / `@since 18.5.0RC1`), but the order is not an XWiki rule: never flag or reorder an
+existing block for it.
 
 **`@since` goes on reusable code, not only on public API.** Anything something else calls carries
 `@since` — including `internal` classes and methods, and the *tools* tests are written with: page

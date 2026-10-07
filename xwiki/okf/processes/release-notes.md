@@ -47,15 +47,22 @@ Application`). An xwiki-contrib extension normally does **not** use it.
 Its release notes are the **Repository application's** per-version ones on extensions.xwiki.org: the
 `notes` property (pretty name "Release Notes") of the `ExtensionCode.ExtensionVersionClass` object on
 the version page `Extension.<Name>.Versions.<version>.WebHome`, rendered in the Versions section of
-the extension page (`https://extensions.xwiki.org/xwiki/bin/view/Extension/<Name>/#HVersions`). In
-practice that property holds a `{{jira}}` macro over the fix version, so the release note *is* the
-list of issues carrying that Fix Version — the shape a core *bugfix* release note has, for every
-release rather than only the bugfix ones.
+the extension page (`https://extensions.xwiki.org/xwiki/bin/view/Extension/<Name>/#HVersions`). For a
+multi-module **Project**, it is the Project's version page, with an `ExtensionCode.ProjectVersionClass`
+object. For a JIRA-tracked extension, that property holds a `{{jira}}` macro over the fix version, so
+the release note *is* the list of issues carrying that Fix Version: the shape a core *bugfix* release
+note has, here for every release. For an **OpenProject**-tracked one, no such macro exists yet, and the
+work packages are copied in by hand (format in the `xwiki-contrib-release` skill).
 
 So for a fixed issue of such an extension:
 
 - **`Documentation in Release Notes` is `N/A`**, and that is not an oversight: there is no per-issue
   entry to point at, the issue being in the release note by virtue of its Fix Version.
+- **An OpenProject-tracked extension differs**: once the version page exists, every work package of
+  the version gets its **Release Notes Documentation** custom field set to that page,
+  `https://extensions.xwiki.org/xwiki/bin/view/Extension/<Space>/Versions/<version>/` (the Project's
+  page for a multi-module project). Older work packages point at a `#H<version>` anchor of the
+  extension page; that anchor no longer exists, so don't copy that form.
 - **Nothing is owed until the version is released.** The version page is created by the Repository
   application from the Maven repository once the artifacts are deployed, and the release itself is
   announced by a blog post (the `xwiki-contrib-release-blog-post` skill).

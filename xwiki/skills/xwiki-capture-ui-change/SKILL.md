@@ -344,10 +344,11 @@ than implying a visual regression that was never there.
 
 ## 5. Deliver: attach to the JIRA issue, reference from the PR body
 
-The two PNGs go on the **JIRA issue** first, then the PR body links them from there. `gh` cannot
+The images go on the **JIRA issue** first, then the PR body links them from there. `gh` cannot
 upload an image, so the JIRA attachment URL is what the PR references — see `okf/servers/jira.md`
 for the REST call (jira-cli has no `attach` command; Atlassian needs `X-Atlassian-Token: no-check`)
-and `xwiki-pull-request` for the PR-body convention. Post them at native resolution, side by side:
+and `xwiki-pull-request` for the PR-body convention. When each state is legible on its own, post
+them at native resolution, side by side:
 
 ```markdown
 | Before | After |
@@ -355,11 +356,29 @@ and `xwiki-pull-request` for the PR-body convention. Post them at native resolut
 | ![before](https://jira.xwiki.org/secure/attachment/<id>/before.png) | ![after](…/after.png) |
 ```
 
-Do not stitch them into one composite image: the reader's client scales a wide composite down to
-the comment column, which softens exactly the subtle detail the capture existed to show, while two
-separate images render at native size and each opens full-size on click. Add one line of prose
-saying what to look at, and name the fixture so a reader can reproduce it. Do not publish an
-Artifact unless asked.
+When the point is a pixel comparison (a radius, a 2px shift, a colour), post **one composite**
+instead: both states juxtaposed in a single image, so one click zooms the two together rather than
+leaving the reader to arrange two tabs. Build it in the same browser session, with each panel at its
+natural size — no width rule, so neither state is resampled — and attach it in place of the pair:
+
+```bash
+cat > "$CAPTURE_DIR/composite.html" <<'HTML'
+<body style="margin:0;background:#fff;font:600 14px sans-serif">
+<div id="c" style="display:inline-flex;gap:16px;padding:8px">
+  <figure style="margin:0">Before<br><img src="before.png"></figure>
+  <figure style="margin:0">After<br><img src="after.png"></figure>
+</div></body>
+HTML
+agent-browser --session capture set viewport 3000 2000 1   # wide enough for both panels
+agent-browser --session capture open "file://$CAPTURE_DIR/composite.html"
+REGION=$(agent-browser --session capture eval "(() => { const r = document.querySelector('#c')
+  .getBoundingClientRect(); return [0, 0, Math.ceil(r.width), Math.ceil(r.height)].join(','); })()" \
+  | tr -d '"')
+"$DOCSHOT" composite "$(cut -d, -f3 <<<"$REGION")" "$REGION"   # -> $CAPTURE_DIR/composite.png
+```
+
+Either way, add one line of prose saying what to look at, and name the fixture so a reader can
+reproduce it. Do not publish an Artifact unless asked.
 
 ## Further reading
 

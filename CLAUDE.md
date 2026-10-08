@@ -77,11 +77,12 @@ Inside `xwiki/`:
   work directory". Run directly, the script prints that work root: that is how opencode gets it,
   having no `SessionStart` hook and reading `xwiki-org.md` verbatim.
 - **`.mcp.json`** — MCP servers: `discourse` (forum.xwiki.org), `develocity`
-  (community.develocity.cloud — XWiki's build scans) and `sonarqube` (SonarCloud via Docker). All
-  three read their credentials from the environment via `${VAR}` expansion — never hardcode
-  these. `SONARQUBE_PROJECT_KEY` and the `DISCOURSE_*` variables use the `${VAR:-}` default form on
-  purpose: Claude Code refuses to load a server whose `${VAR}` is unset, and both are optional
-  (many repos have no SonarCloud project; forum credentials are opt-in).
+  (community.develocity.cloud — XWiki's build scans) and `sonarqube` (SonarCloud). All three read
+  their credentials from the environment via `${VAR}` expansion — never hardcode these. The
+  `DISCOURSE_*` variables use the `${VAR:-}` default form on purpose: Claude Code refuses to load a
+  server whose `${VAR}` is unset, and forum credentials are opt-in. `develocity` and `sonarqube` are
+  remote (HTTP) servers, so no local process runs; keep it that way — the `mcp/sonarqube` Docker
+  image they replaced cost ~840 MiB per session.
 - **`scripts/start-discourse-mcp.mjs`** — launcher for the `discourse` server, used by all three
   hosts. Anonymous and read-only by default; when a forum credential is in the environment
   (`DISCOURSE_API_KEY` + `DISCOURSE_API_USERNAME`, or the `DISCOURSE_USER_API_KEY` +
@@ -89,10 +90,6 @@ Inside `xwiki/`:
   the forum. A wrapper is required because that choice is conditional on the credential being set,
   which a static MCP manifest cannot express; the credential goes into a temporary 0600 profile
   file rather than on the command line, keeping it out of the process list.
-- **`scripts/start-sonarqube-mcp.mjs`** — launcher for the `sonarqube` server, used by Kimi Code and
-  opencode (see `kimi.plugin.json` and `opencode.jsonc`). Neither expands a shell-style `${PWD}`
-  inside an MCP command, so the script resolves the workspace mount from the session's working
-  directory at runtime; Claude Code runs the `docker` command directly from `.mcp.json`.
 - **`skills/*/SKILL.md`** — one skill per directory; the `name`/`description` frontmatter is what
   Claude matches against. Every skill's `name` (and its directory) is prefixed `xwiki-`. The skills
   cross-reference each other (e.g. `xwiki-convert-tests` vs `xwiki-convert-tests-docker`,

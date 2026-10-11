@@ -248,10 +248,9 @@ async function buildGithubItems({ prs, keys, me }) {
         .map((m) => `gh:${repo}#${m[1]}`),
     };
     item.stale = days(item.lastActivity) > STALE_DAYS;
-    item.needsApproval = group === "mine" && /New Feature|Improvement/.test(issueType ?? "") && !item.stale
-      && !soleCommitter(repo, me);
-    if (group === "mine" && /New Feature|Improvement/.test(issueType ?? "") && !item.needsApproval && !item.stale) {
-      item.note = "no reviewer available: merging unreviewed";
+    if (group === "mine" && !item.stale && /New Feature|Improvement/.test(issueType ?? "")) {
+      item.needsApproval = !soleCommitter(repo, me);
+      if (!item.needsApproval) item.note = "no reviewer available: merging unreviewed";
     }
     Object.assign(item, classifyPr(item));
     item.questions = [];
@@ -395,8 +394,6 @@ const stripHtml = (html) => html.replace(/<aside[\s\S]*?<\/aside>/g, " [quote] "
 async function collectForum(me) {
   const site = await forum("/site.json");
   const news = new Set(site.categories.filter((c) => /news/i.test(c.name) || /news/i.test(c.slug)).map((c) => c.id));
-  // Each category's "About the … category" description topic is the category's, not a discussion.
-  const about = new Set(site.categories.map((c) => c.topic_id));
   const topics = [];
   for (let page = 0; ; page++) {
     const list = (await forum(`/topics/created-by/${encodeURIComponent(me)}.json?page=${page}`)).topic_list;
@@ -404,6 +401,13 @@ async function collectForum(me) {
     if (!list.topics.length || !list.more_topics_url) break;
   }
   const items = [];
+  // Each category's "About the … category" description topic is the category's, not a discussion.
+  // Only each category's own page names it, at the end of its `topic_url`; ask each category once.
+  const about = new Set();
+  for (const id of new Set(topics.map((x) => x.category_id))) {
+    const url = await forum(`/c/${id}/show.json`).then((c) => c.category.topic_url, () => null);
+    about.add(Number(url?.match(/\/(\d+)$/)?.[1]));
+  }
   for (const t of topics.filter((x) => !x.has_accepted_answer && !x.closed && !x.archived && !news.has(x.category_id)
     && !about.has(x.id))) {
     const item = {
@@ -465,42 +469,30 @@ async function collect(opts) {
   const cfg = config();
   const only = opts.only ? new Set(String(opts.only).split(",")) : null;
   const run = { date: today, partial: Boolean(only), identities: {}, skipped: {}, errors: {}, items: [] };
-  const want = (c) => !only || only.has(c);
-
-  if (want("gh")) {
+  // Per category: who the developer is there (null skips it, with the reason), and how to collect.
+  const categories = {
+    gh: [() => cfg.github ?? gh(["api", "user", "--jq", ".login"], { json: false }).trim(), null,
+      async (me) => buildGithubItems(collectGithub(me))],
+    jira: [async () => (process.env.JIRA_API_TOKEN ? (await jira("/rest/api/2/myself")).name : cfg.jira),
+      "no JIRA_API_TOKEN and no `jira` username in config", collectJira],
+    forum: [() => cfg.forum ?? process.env.DISCOURSE_API_USERNAME,
+      "no forum username: run `config forum=<username>`", collectForum],
+  };
+  for (const [name, [identify, whySkipped, gather]] of Object.entries(categories)) {
+    if (only && !only.has(name)) continue;
     try {
-      const me = cfg.github ?? gh(["api", "user", "--jq", ".login"], { json: false }).trim();
-      run.identities.github = me;
-      run.items.push(...await buildGithubItems(collectGithub(me)));
-    } catch (e) {
-      run.errors.gh = e.message;
-    }
-  }
-  if (want("jira")) {
-    try {
-      const me = process.env.JIRA_API_TOKEN ? (await jira("/rest/api/2/myself")).name : cfg.jira;
-      if (!me) run.skipped.jira = "no JIRA_API_TOKEN and no `jira` username in config";
-      else {
-        run.identities.jira = me;
-        run.items.push(...await collectJira(me));
+      const me = await identify();
+      if (!me) {
+        run.skipped[name] = whySkipped;
+        continue;
       }
+      run.identities[name] = me;
+      run.items.push(...await gather(me));
     } catch (e) {
-      run.errors.jira = e.message;
+      run.errors[name] = e.message;
     }
   }
-  if (want("forum")) {
-    try {
-      const me = cfg.forum ?? process.env.DISCOURSE_API_USERNAME;
-      if (!me) run.skipped.forum = "no forum username: run `config forum=<username>`";
-      else {
-        run.identities.forum = me;
-        run.forumWrite = Boolean(forumHeaders()["Api-Key"]);
-        run.items.push(...await collectForum(me));
-      }
-    } catch (e) {
-      run.errors.forum = e.message;
-    }
-  }
+  run.forumWrite = Boolean(forumHeaders()["Api-Key"]);
   const file = runFile(opts);
   writeJson(file, run);
   const pending = run.items.filter(needsJudgement).length;
@@ -708,7 +700,7 @@ function rank(opts) {
   }
   if (routine.length) {
     const authors = [...new Set(routine.map((r) => `author:${r.authorQuery}`))];
-    const q = `is:pr is:open assignee:${run.identities.github} ${authors.join(" ")}`;
+    const q = `is:pr is:open assignee:${run.identities.gh} ${authors.join(" ")}`;
     out.push("", `## Routine PRs (outside the budget)`, "",
       `${routine.length} green, mergeable PR(s) by bots assigned to you: review and merge them in bulk.`
       + ` [Open the list](https://github.com/pulls?q=${encodeURIComponent(q)})`);

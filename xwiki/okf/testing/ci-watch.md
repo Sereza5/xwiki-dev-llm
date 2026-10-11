@@ -1,10 +1,8 @@
 ---
 title: Watching a merged functional test on CI
 stability: durable
-summary: How to prove that a merged or backported functional test runs and passes on CI — what counts
-  as "it ran" (nested class present, not a cache hit, renamed methods, which builds contain the merge)
-  and the in-session watch (per PR × branch state file, a recurring check run by a subagent, stop
-  when everything is proven).
+summary: Proving a merged or backported functional test on CI — what counts as "it ran and passed",
+  and the in-session watch that checks it.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/
 ---
@@ -46,6 +44,7 @@ A green build is not evidence until each of these holds:
 4. **Run each check in a subagent** that reads the state file, examines the new builds, updates the
    file and returns only what changed (a new failure, a row newly proven, a fix proposed), so the main
    context stays small.
-5. **Diagnose a failure in that same session**, as the rule in [[strategy]] says; the browser console
-   in the test's captured output and the build's screen recording help with a flicker.
+5. **Diagnose a failure in that same session**: a bug in the test or its page objects gets a fix PR; a
+   pre-existing flicker gets a flickering issue ([[jira]]). For a flicker, the browser console in the
+   test's captured output and the build's screen recording help.
 6. **Stop** when every row is proven, and say so.

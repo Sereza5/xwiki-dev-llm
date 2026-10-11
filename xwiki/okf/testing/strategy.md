@@ -200,14 +200,10 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   raw type (`@SuppressWarnings("rawtypes") @MockComponent SomeComponent mock`), and the automatically
   injected provider returns it.
 - **A functional test is done once CI has proven it, not when its PR is merged** — a new or modified
-  `*IT`, a flicker fix included, is done once it has run and passed on CI on **every branch** it was
-  merged or backported to, in N (default 3) builds of distinct commits containing the merge;
-  Environment Tests builds count. "Ran" has traps (nested class absent, cache hit, renamed methods,
-  builds predating the merge) and the watch has a procedure: [[ci-watch]]. A failure is diagnosed in
-  the session that wrote the test, which has the context: a bug in the test or its page objects → a
-  fix PR; a pre-existing flicker → a flickering issue (fields in [[jira]]); a regression from an
-  unreleased issue → reported on that issue, not a new one (Affects Version/s only ever names a
-  released version).
+  `*IT`, a flicker fix included, must have run and passed on CI on **every branch** it was merged or
+  backported to, in N (default 3) builds of distinct commits containing the merge. What counts as
+  "ran" and how to watch: [[ci-watch]]. A failure is diagnosed by the session that wrote the test,
+  which has the context; whether it gets its own issue is decided as in [[jira]].
 - **Coverage** — keep a module's coverage current by running the `xwiki-increase-test-coverage`
   skill as part of any unit-test change: it raises the module pom's `xwiki.jacoco.instructionRatio`
   when the achieved ratio has grown, and otherwise guides adding the missing tests. (The mvn command

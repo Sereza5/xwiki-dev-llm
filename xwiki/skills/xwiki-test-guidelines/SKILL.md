@@ -27,7 +27,7 @@ When writing a test:
 * A page-object method waits for its own outcome, so the test needs no `waitUntil…` after calling it; a wait there belongs in that method (page-object rules in `okf/testing/strategy.md`).
 * For other types of tests, see https://dev.xwiki.org/xwiki/bin/view/Community/Testing/ which has sections for other types
 * After writing a test, use Maven to verify that any test written works fine. However, if the test is a functional test, ask before executing Maven since there could be an already running XWiki instance locally on the developer's machine, and the test is supposed to start one too. The `xwiki-build` skill has the pre-run checks (port 8080, JDK on `PATH`).
-* Once the PR adding or modifying a functional test (or a backport of it) is merged, ask the user whether to set up the CI watch in this session for every branch it landed on: the test is not done until CI has proven it there (rule in `okf/testing/strategy.md`, watch in `okf/testing/ci-watch.md`).
+* Once the PR adding or modifying a functional test (or a backport of it) is merged, ask the user whether to set up the CI watch in this session for every branch it landed on (`okf/testing/ci-watch.md`).
 * Apply XWiki's general code best practices and code style when writing tests.
 * Don't use @OldcoreTest when @ComponentTest is enough.
 * Verify if the jacoco coverage threshold cannot be increased after tests have been added, by running maven with `-Pquality -Dxwiki.jacoco.instructionRatio=1.00` which should fail but provide the current threshold value that can then be used to replace the current value.

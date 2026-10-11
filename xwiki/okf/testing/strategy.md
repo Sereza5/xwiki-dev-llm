@@ -12,7 +12,8 @@ summary: The kinds of tests XWiki uses, their naming, the no-stdout rule, the pr
   Programming Rights to a test's own content, asserting whose rights code runs with, the assertion channel
   (browser vs REST), the bare @UITest on an AllIT container, the functional-test module layout
   (which pom lists which module under which profile, the -test-docker pom), getting a mandatory class in an
-  @OldcoreTest, MockitoOldcore's save authors, mocking a raw injected Provider, coverage, and where
+  @OldcoreTest, MockitoOldcore's save authors, mocking a raw injected Provider, a functional test being
+  done only once CI has proven it on every branch, coverage, and where
   each test framework lives. Procedures live in the test skills.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/Testing/
@@ -198,6 +199,11 @@ This is the declarative map of how testing works in XWiki. For **doing** the wor
   `@InjectMockComponents` silently creates another mock for the raw role. Declare the mock with the
   raw type (`@SuppressWarnings("rawtypes") @MockComponent SomeComponent mock`), and the automatically
   injected provider returns it.
+- **A functional test is done once CI has proven it, not when its PR is merged** — a new or modified
+  `*IT`, a flicker fix included, must have run and passed on CI on **every branch** it was merged or
+  backported to, in N (default 3) builds of distinct commits containing the merge. What counts as
+  "ran" and how to watch: [[ci-watch]]. A failure is diagnosed by the session that wrote the test,
+  which has the context; whether it gets its own issue is decided as in [[jira]].
 - **Coverage** — keep a module's coverage current by running the `xwiki-increase-test-coverage`
   skill as part of any unit-test change: it raises the module pom's `xwiki.jacoco.instructionRatio`
   when the achieved ratio has grown, and otherwise guides adding the missing tests. (The mvn command

@@ -114,8 +114,8 @@ Applied by `xwiki-fix-sonarqube-issue`, which owns the *procedure*.
 - **verification** — what makes a Sonar fix verified rather than merely compiled.
 
 ### servers/
-- **index** (`servers/index.md`) — the xwiki.org servers, how to reach each, and the traps of reading
-  and writing over REST.
+- **index** (`servers/index.md`) — the xwiki.org servers, how to reach each, the traps of reading
+  and writing over REST, and attributing posts an LLM co-wrote.
 - **jira** — working with jira.xwiki.org: whether to file at all, the issue fields, resolving,
   attachments, wiki markup.
 - **jenkins** — querying ci.xwiki.org over its REST API, and how to read a result without drawing the

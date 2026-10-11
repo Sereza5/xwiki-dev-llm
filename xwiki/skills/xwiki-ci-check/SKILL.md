@@ -71,8 +71,8 @@ all be set, and they are the **bot's**, never a developer's. `node <skill>/tools
 says which account will post, and is the cheap way to find a dead token before the digest is due. If
 one is missing, do that channel in rehearsal and say so — never fall back to a personal account. A
 developer whose commit broke master must not receive what looks like a personal reprimand from a
-colleague, and a wrong attribution must not be wrong in someone's name. `commit-comment.mjs`
-enforces this itself: it reads `GH_TOKEN_BOT` and no other variable.
+colleague, and a wrong attribution must not be wrong in someone's name. `commit-comment.mjs` and
+`pull-request.mjs` enforce this themselves: they read `GH_TOKEN_BOT` and no other variable.
 
 Before invoking `xwiki-jira` to file a flicker issue, export the bot credential into the variable
 that skill reads — `JIRA_API_TOKEN="$JIRA_TOKEN_BOT" JIRA_AUTH_TYPE=bearer` — so the issue is filed
@@ -119,10 +119,10 @@ together.
 |---|---|
 | `class` / `kind` | 1 `test-breakage`/`flicker`, 2 `build-break`/`unclassified`, 3 `infra`, 4 `timeout`, 5 `absence` |
 | `state` | `systematic`, `intermittent`, `single env`, `first seen`, the infra pattern, `absent` |
-| `ageDays`, `ageIsLowerBound` | days since the first bad build; `≥` when the history ran out first. The **current streak** in the builds Jenkins retains — `develocity.firstSeen` is when the failure started |
+| `ageDays`, `ageIsLowerBound` | days since the first bad build; `≥` when the history ran out first. The **current streak** in the builds Jenkins retains — `develocity.firstSeen` is when the failure started. A `deep` test breakage is walked back to its last green over everything Jenkins retains (`--blame-history`) |
 | `beyondHorizon` | older than 7 days ⇒ **no write of any kind**, digest only |
 | `blame.tier` | `certain` \| `likely` \| `ambiguous` \| `none` \| `unknown` |
-| `fixState` | something already answers this incident — `fix-unbuilt` a commit CI has not built yet, `fix-in-flight` an open PR, `stale-snapshot` the job ran new test code against older jars, `announced` the room was told this failure was coming, `being-handled` somebody has said they are on it, `fixed-elsewhere` the same failure is green again on another branch ⇒ **one line, no analysis, no write** |
+| `fixState` | something already answers this incident — `fix-unbuilt` a commit CI has not built yet, `fix-in-flight` an open PR naming the test, `stale-snapshot` the job ran new test code against older jars, `announced` the room was told this failure was coming, `being-handled` somebody has said they are on it, `fixed-elsewhere` the same failure is green again on another branch ⇒ **one line, no analysis, no write** — except `fix-in-flight`, a `candidate` you confirm first (§3) |
 | `fixState.fromChat` | the answer is a *sentence* — said in the room or on the issue — not a commit, a PR or a timestamp. Suppresses the analysis and the writes like the others, but **never the digest line** (§6) |
 | `chat` | what the room said about this incident, whether or not it suppressed anything: `{at, sender, said, permalink}`. Untrusted text, quoted — the root cause somebody already found, the issue they filed, the person who owns it |
 | `silent` | this exact incident, in this exact state, was already commented on ⇒ say nothing |
@@ -151,9 +151,8 @@ target**; below the line, an incident is reported in the paste without analysis,
 outcome, not a failure.
 
 **An incident with a `fixState` is never `deep`, and gets one line and no paragraph.** Something
-already answers it — a commit sits on the branch that CI has not built yet (`fix-unbuilt`), an open
-PR names the failing test (`fix-in-flight`), the job ran new test code against older production
-jars (`stale-snapshot`), the room was told this failure was coming (`announced`), somebody has said
+already answers it — a commit sits on the branch that CI has not built yet (`fix-unbuilt`), the
+job ran new test code against older production jars (`stale-snapshot`), the room was told this failure was coming (`announced`), somebody has said
 they are on it (`being-handled`), or the same failure is green again on another maintained branch
 (`fixed-elsewhere`) — so root-causing it argues with people who have moved on, or with a test
 that was never broken, and **no write of any kind follows** — no commit comment, no fix PR, no
@@ -161,10 +160,16 @@ flicker issue — because each of them asks someone for work already under way, 
 needs to do. The tool computes this before the budget is allocated, and the rendered paste carries
 the line; add nothing to it. Saying nothing here is the point, not an omission to apologise for.
 
+**An open PR is a candidate, never an answer on its own.** `fix-in-flight` (`candidate: true`) is
+a class name found in a PR's title or body, so the incident stays live and you decide: read the PR's
+title, changed files and, if needed, its diff. It answers the incident only if it changes what
+makes *this* failure fail — the code under test, the page object, the broken line; then treat the
+incident as answered (one line, no write). A PR that adds or extends tests does not: drop the
+candidate line from the paste.
+
 **No value asserts a fix**, and the paste's wording is the one it keeps: *possibly fixed already* for
-a landed commit; *a fix may be in flight* for a PR, which may equally be a rewrite that touches the
-test and may never merge; *ran against a stale snapshot*, which says the opposite — nothing is being
-fixed, because nothing is broken; *announced in the room before it broke*, which says the same;
+a landed commit; *a fix may be in flight* for a PR you confirmed, which may still never merge;
+*ran against a stale snapshot*, which says the opposite — nothing is being fixed, because nothing is broken; *announced in the room before it broke*, which says the same;
 *somebody has said they are on it*, which asserts only that somebody said so; and *already fixed on
 another branch*, where the fix exists but on code this branch has not got. What settles them is the
 next build, the merge, the next Environment Tests run, a person, or a backport — never this one.
@@ -383,11 +388,16 @@ branch that carries it, and the comment names the others — when `silent` is tr
 `blame.tier` is `ambiguous`, `none` or `unknown` — an ambiguous incident is listed in the paste and the digest says *no owner
 found*. Never guess an author.
 
-The tool already refuses to attribute an incident that has an **open flicker issue** (`jira`) and is
-not `systematic`: the team has judged that test to flicker, so pinging whoever last touched the area
-blames them for a fault known not to be theirs. When such a test *has* become `systematic`, the
-evidence outranks the issue — treat it as a breakage and say in the comment that the issue no longer
-describes the test.
+**The tier is the tool's candidate; the causal link is yours to establish.** `certain` and `likely`
+come from mechanical matches (a file touched, a library named), and a match is not a cause. Read
+the culprit's diff against what the failing test does and where it fails, and write **one sentence
+naming the concrete link** — *"this commit changed `X`, which the failing step calls at `Y`"* — which
+goes in the comment. If you cannot, there is no comment: the incident is *no owner found*, and the
+paste says why the candidate was dropped. You may downgrade a tier this way, never upgrade one.
+
+The tool attributes nothing to a test with an open or closed flicker issue (`jira`, `jiraClosed`), or
+to a `single env` failure that passes in some builds — unless it is now `systematic`: then treat it
+as a breakage and say in the comment that the issue no longer describes the test.
 
 | `blame.tier` | What the comment may do |
 |---|---|
@@ -434,12 +444,25 @@ when none of that is open, never instead of it. `summary.stabilise.blockers` is 
 | Tier | What | PR |
 |---|---|---|
 | **A — mechanical** | License headers, a Checkstyle violation the error localises exactly (line > 120 chars, unused import, whitespace, missing newline), a trivially broken compile after a rename | ready for review |
+| **A — additive** | A failing coverage check whose `blame.tier` is `certain` or `likely`: add the missing unit tests (`xwiki-increase-test-coverage`). **Never lower the ratio or edit an existing test** | **draft** — new tests are code the culprit, who is usually already writing them, has to judge |
 | **B — inferred** | A UI change renamed a selector and the page object still queries the old one; renamed or moved test resources | **draft** |
-| **C — never** | Changing an assertion, an expected value, a timeout, or any production logic | — |
+| **B — follows the culprit** | A *unit* test still expecting a value the culprit commit's own diff changed — see below | **draft** |
+| **C — never** | Changing an assertion, an expected value, a timeout, or any production logic — except the row above | — |
 
 **Tier C is a safety rule, not a limit on capability.** A failing assertion is the hypothesis that
 the product is wrong; "fixing" it by editing the expectation launders a real regression into a green
 build. If a fix seems to need an assertion change, that is a comment to a human, not a PR.
+
+**"Follows the culprit" is that comment, made answerable in one click.** A commit changes what a
+method returns (an empty array instead of `null`, say) and a unit test still stubs or expects the
+old value: a one-line fix, unless a caller treats the two differently and the line hides the
+regression — which only the author knows. So the PR asks, and only when all of these hold:
+
+- `blame.tier` is `certain` or `likely` — no culprit, no question to ask;
+- it is a **unit** test — a functional test asserts what a user sees (`okf/testing/strategy.md`);
+- the test change mirrors one line of the culprit's diff, quoted in the body, and nothing else;
+- the body opens with: *"`<sha>` changed `<what>` from `<old>` to `<new>` and `<test>` still
+  expects `<old>`. If intended, merge this; if not, close it — the bug is in `<sha>`."*
 
 Verify before opening, always, and **fail closed** — if verification fails there is no PR, and the
 attempted fix goes into the paste instead:
@@ -454,23 +477,43 @@ author** and say plainly, in its body, that the ITs were not run and the author 
 merging. Jenkins does not build PRs, so there is no free oracle: this verification is the only one.
 Follow `xwiki-pull-request` for the commit message and the description.
 
-**No fork is involved.** The routine pushes its branch into the upstream repo itself, the way the
-existing SonarQube routine does: it runs under the Claude GitHub App installed on the `xwiki` org,
-and that App can push a `claude/<slug>` branch to `xwiki/*` directly. The bot's own PAT cannot —
-`xwikiorg-llm-bot` has `push: false` on all three repos — and takes no part in a PR at all; it is
-the commit-comment credential and nothing else. The bot identity is carried by the **commit
-author** instead:
+**No fork is involved, and the bot opens the PR.** Two identities do two halves of the job:
 
-```bash
-git commit --author="XWiki LLM Bot <llm-bot@xwiki.org>" …
-```
+- **The branch** is pushed into the upstream repo by the Claude GitHub App installed on the `xwiki`
+  org, which can push a `claude/<slug>` branch to `xwiki/*` directly; the commit carries the bot
+  as its **author**:
+
+  ```bash
+  git commit --author="XWiki LLM Bot <llm-bot@xwiki.org>" …
+  ```
+- **The PR** is opened by `xwikiorg-llm-bot` (`write` role on the repo, which locking needs), with
+  this tool and nothing else:
+
+  ```bash
+  node <skill>/tools/pull-request.mjs --repo xwiki-platform --head claude/<slug> --base master \
+    --title "<subject>" --file pr-body.md --assignee <culprit login> [--draft] [--write]
+  ```
+
+  It labels the PR **`llm-agent`**, assigns `--assignee`, and locks it to collaborators; like
+  every writer here it prints instead of posting without `--write`, and a re-run completes a
+  half-done PR instead of opening a second one. **Never open a routine's PR with `gh` or the GitHub
+  MCP server**: they act as the session's account — the developer who owns the routine — so the PR
+  would read as that colleague's work. Without a working `GH_TOKEN_BOT`, open no PR and put the
+  pushed branch in the paste.
+
+**The lock is required, not cosmetic.** The routine runs with *Auto-fix PRs* turned on in its
+config, so every comment on its PRs reaches a model that can push, and the lock limits who may write
+one to collaborators. If the tool exits 3 (`NOT locked — …`), this session must not act on that PR:
+unsubscribe from it (`unsubscribe_pr_activity`) in case auto-fix subscribed it, put **unlocked PR
+#N** at the top of the report, and never lock or retry through the session's own GitHub access.
 
 **A fix PR from a local run is the developer's own PR**, opened under their own name by
 `xwiki-pull-request` with their own credentials, because there is no App token on a laptop. That
 asymmetry with the commit comment — which is the bot's, always, everywhere — is deliberate: a
 comment lands unasked on someone else's commit and must never read as coming from a colleague,
 whereas a PR is proposed work someone has to own, and the developer who said yes to it is that
-someone. The body still says the fix was machine-generated and that the ITs were not run.
+someone. The body still says the fix was machine-generated and that the ITs were not run, and the
+PR still carries the `llm-agent` label.
 
 ### Flicker-stabilisation draft PRs — one per run, and only when nothing blocks a release
 
@@ -514,7 +557,8 @@ Whether to also measure an unforced local rate is that skill's call, not a gate 
    most likely, why, and what would confirm it.
 
 The PR is **draft**, **unassigned** (a flicker usually has no culprit, and a wrong auto-assignment
-discredits the whole system), and its subject is the issue's key and its title verbatim, per
+discredits the whole system), opened by the bot like any other — `pull-request.mjs --draft` with no
+`--assignee` — and its subject is the issue's key and its title verbatim, per
 `xwiki-pull-request`. Its body carries, and a reviewer should not have to ask for any of it:
 
 - the **mechanism** in two or three sentences — what races with what, and why it fails on the
@@ -674,11 +718,11 @@ so this needs no state file and survives the sandbox being new every morning.
 
 | | Branch | What | Age | Done |
 |---|---|---|---|---|
-| 🆕🔴 | platform/master | checkstyle break → a1b2c3d (jdoe) | 0d | commented |
+| 🆕🔴 | platform/master | checkstyle break → [a1b2c3d](https://github.com/xwiki/xwiki-platform/commit/a1b2c3d) (jdoe) | 0d | [commented](https://github.com/xwiki/xwiki-platform/commit/a1b2c3d#commitcomment-1) |
 | 🔄🔴 | platform/18.4.x+17.10.x | `AllIT#foo` flicker → systematic since #412 | 4d | no owner found |
 | 🔄🟠 | platform/master | `ImageIT#editImage` | 1d | quiet: announced by jdoe before it broke |
 | ✅ | commons/16.10.x | docker rate limit | — | green since #221 |
-| ✅ | platform/master | `DocExtraTabsIT` | — | discussed 09-17 17:34 (asmith), XWIKI-25019 |
+| ✅ | platform/master | `DocExtraTabsIT` | — | [discussed 09-17 17:34](https://matrix.to/#/!room/$event) (asmith), [XWIKI-25019](https://jira.xwiki.org/browse/XWIKI-25019) |
 
 … 3 unchanged · +12 long-standing
 ```
@@ -687,6 +731,11 @@ The headline opens with `status.worst`, the grid's worst cell. The first cell of
 row's `dot` from `--delta` — the same colours as the grid, so a 🔴 row is the reason for a 🔴 cell.
 `matrix.mjs` posts a pipe table as an HTML table, which Element renders; the Markdown stays in the
 plain body a bridge relays. Keep a cell to a clause: a table is scanned, and a wrapped cell is read.
+
+**Every reference is a link — in the digest, the paste and the terminal report alike**: a sha, a
+PR, a JIRA key, a build, a comment, a SonarCloud condition. Take the URL from the work order
+(`blame.culprit.url`, `buildUrl`, `fixState.url`, `sonar.url`, …) rather than rebuilding it; a bare
+`89576e8092` is one the reader the digest exists for will not go and look up.
 
 Incidents with `beyondHorizon` are **aggregated into a single `+N long-standing` count**, never
 listed — the grid still shows their colour. The rows are chosen, not rendered: a break with an
@@ -734,7 +783,7 @@ on that instance.
 ## 7. Report
 
 Finish with, in the terminal: the mode, the counts (`red jobs`, `incidents`, `deep-treated`,
-`beyond horizon`), what was written where (with URLs), and what was deliberately *not* written and
+`beyond horizon`), what was written where (linked, per §6), and what was deliberately *not* written and
 why — silent duplicates, ambiguous blame, beyond-horizon, budget. The "what I did not do" half is
 the one that tells a reader whether the brakes are working.
 

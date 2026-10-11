@@ -54,8 +54,8 @@ follows.
 
 ## Code conventions
 
-- **Lines must not exceed 120 characters** — that is a rule about *source*. Never hard-wrap prose:
-  a paragraph on an xwiki.org page, a forum post or a GitHub PR/advisory body is one unbroken line.
+- **Lines must not exceed 120 characters** — in source files only. Never hard-wrap prose elsewhere
+  (commits, JIRA, xwiki.org, forum, Matrix, GitHub): a paragraph or list item is one line.
 - LGPL license headers are required on every source file — run `mvn license:format -B -ntp` to add
   missing headers.
 - In new code, prefer the `jakarta.*` namespaces over `javax.*` (the project is migrating
@@ -97,7 +97,7 @@ OKF map — topic files under `okf/`; **`okf/index.md` describes each one**, rea
   `xwiki-doc-writing` / `xwiki-doc-convert`.
 - `okf/architecture/` — `component-system`, `platform-modules`, `macro-refactoring`,
   `wiki-user-scope`, `solr-search`, `wiki-application-data`, `required-rights`.
-- `okf/testing/` — `strategy`, `running-docker-its`, `flickers`.
+- `okf/testing/` — `strategy`, `running-docker-its`, `ci-watch`, `flickers`.
 - `okf/sonarqube/` — which SonarCloud fixes are *correct* in XWiki and which look mechanical but
   silently break something. Read `sonarqube/index.md` first, then **only** the family file for the
   rule at hand: `syntax-rules`, `simplification-rules`, `modernization-rules`, `dead-code-rules`,

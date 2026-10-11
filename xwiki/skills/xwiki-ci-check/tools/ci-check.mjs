@@ -29,6 +29,8 @@ const USAGE = `Usage: node ci-check.mjs [options]
   --horizon <days>    Blame horizon: no write is proposed for an older incident (default 7)
   --budget <n>        Incidents marked for deep treatment (default 5)
   --history <n>       Builds of history to age and rate a failure over (default 8)
+  --blame-history <n> Builds a deep test breakage with no green build in --history is walked back
+                      over to find one to blame from (default 25, about what Jenkins retains)
   --absence <days>    Days without a build that make a dev/LTS branch an incident (default 3)
   --max-console <n>   Consecutive broken builds whose log is read, per job (default 4)
   --no-github         Skip blame attribution and the "already commented?" check
@@ -52,7 +54,7 @@ Without one, blame and comment-dedupe are unavailable and every incident comes b
 function parseArgs(argv) {
   const out = {
     repos: ['xwiki-commons', 'xwiki-rendering', 'xwiki-platform'], branch: null, horizon: 7,
-    budget: 5, history: 8, absence: 3, maxConsole: 4, github: true, develocity: true,
+    budget: 5, history: 8, blameHistory: 25, absence: 3, maxConsole: 4, github: true, develocity: true,
     full: false, pretty: false,
     renderDetail: null, live: false, delta: null, previous: null, chat: null
   };
@@ -63,6 +65,7 @@ function parseArgs(argv) {
     else if (key === '--horizon') out.horizon = Number(argv[++i]);
     else if (key === '--budget') out.budget = Number(argv[++i]);
     else if (key === '--history') out.history = Number(argv[++i]);
+    else if (key === '--blame-history') out.blameHistory = Number(argv[++i]);
     else if (key === '--absence') out.absence = Number(argv[++i]);
     else if (key === '--max-console') out.maxConsole = Number(argv[++i]);
     else if (key === '--no-github') out.github = false;
@@ -624,13 +627,8 @@ function attribute(incident, commits) {
         ' which the failure reports'
     };
   }
-  if (authors.size === 1 && commits.length <= 6) {
-    const culprit = commits.find(commit => commit.author);
-    return {
-      tier: 'likely', culprit, suspects: commits,
-      reason: `every one of the ${commits.length} commits in the window is by the same author`
-    };
-  }
+  // Deliberately no "every commit in the window is by the same author" rule: who pushed that day is
+  // not evidence (it pinged an unrelated Solr fix on 2026-10-09). The model judges the rest (§4).
   const relevant = new Set([...byPath, ...byWord]);
   return {
     tier: 'ambiguous', suspects: commits,
@@ -755,7 +753,7 @@ async function forwardFix(incident, job, args) {
 }
 
 /** Whether the branch already answers for the *whole* incident — the only case that goes quiet. */
-const settled = incident => !!incident.fixState && !incident.fixState.partial;
+const settled = incident => !!incident.fixState && !incident.fixState.partial && !incident.fixState.candidate;
 
 // ---- In-flight fix ---------------------------------------------------------------------------
 // The second place the answer can already exist, after the unbuilt commits above: an open pull
@@ -810,6 +808,12 @@ function openPullRequests(repo, args) {
   return pullRequests.get(repo);
 }
 
+/**
+ * Test-suite class names shared by many modules, which therefore identify none of them: `AllIT` tied
+ * a repository-module failure to a PR touching only `NotificationsIT` (2026-10-09).
+ */
+const GENERIC_CLASS = /^All\w*(IT|Test)s?$/;
+
 /** Whether `text` names `word` on its own, rather than inside a longer identifier. */
 const mentions = (text, word) =>
   new RegExp(`(?<![\\w$])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w$])`).test(text);
@@ -823,7 +827,8 @@ const mentions = (text, word) =>
  */
 function inFlightKeys(incident) {
   const groups = forwardKeys(incident).groups.map(keys => keys
-    .filter(key => key.endsWith('.java')).map(key => key.replace(/\.java$/, '')));
+    .filter(key => key.endsWith('.java')).map(key => key.replace(/\.java$/, ''))
+    .filter(name => !GENERIC_CLASS.test(name)));
   return { groups, jira: incident.jira?.key || null };
 }
 
@@ -869,6 +874,9 @@ async function inFlightFix(incident, args) {
     covers: covered.map(keys => keys[keys.length - 1]),
     of: groups.length,
     partial: groups.length > 1 && covered.length < groups.length,
+    // A name match is not a fix ("Add automated test for Export PDF" names `PDFExportIT`), so an open
+    // PR never silences on its own: the model confirms or discards it (SKILL.md §3).
+    candidate: true,
     reason: named
       ? `it names ${named}, the class the failure names`
       : `it names ${jira}, the issue this incident is tracked as`
@@ -1825,6 +1833,25 @@ async function investigate(incident, job, args) {
     };
     return;
   }
+  // A *closed* flicker issue is the same history: the likeliest explanation is that it still
+  // flickers, not that today's commits broke it.
+  if (incident.jiraClosed && incident.state !== 'systematic') {
+    incident.blame = {
+      tier: 'none', suspects: [],
+      reason: `flickered before (${[incident.jiraClosed.key, ...(incident.jiraClosed.earlier || [])].join(', ')}) `
+        + 'and is not failing every build — reported, nobody pinged'
+    };
+    return;
+  }
+  // `single env` passed in some of the builds examined: a commit does not break a test some of the
+  // time.
+  if (incident.class === 1 && incident.state === 'single env') {
+    incident.blame = {
+      tier: 'none', suspects: [],
+      reason: 'passes in some builds of its one environment — not a breakage yet, nobody pinged'
+    };
+    return;
+  }
   // A quality gate fails on aggregate coverage and issue counts over the whole project, not on a
   // change — so file overlap has nothing to overlap and the five commits in the window are five
   // people named under a failure none of them can be shown to have caused. There *is* an author —
@@ -1838,6 +1865,17 @@ async function investigate(incident, job, args) {
         + 'names the authors of the code under the failing condition instead'
     };
     return;
+  }
+  if (incident.class === 1 && incident.window && !incident.window.lastGood) {
+    incident.window = await deeperTestWindow(incident, job, args);
+    Object.assign(incident, ageOf(incident.window));
+    // The horizon was checked against the shallow window's age, a lower bound: the deeper one can
+    // date the breakage past it, and then it gets no write either.
+    incident.beyondHorizon = incident.ageDays != null && incident.ageDays > args.horizon;
+    if (incident.beyondHorizon) {
+      incident.blame = { tier: 'none', reason: `older than the ${args.horizon}-day horizon`, suspects: [] };
+      return;
+    }
   }
   const { firstBad, lastGood } = incident.window || {};
   if (!firstBad || !lastGood) {
@@ -1863,6 +1901,34 @@ async function investigate(incident, job, args) {
   } catch (error) {
     incident.blame = { tier: 'unknown', reason: `attribution failed: ${error.message}`, suspects: [] };
   }
+}
+
+/**
+ * The regression window of a deep test breakage, walked back past `--history` to its last green.
+ *
+ * Eight builds rate a flicker well and blame a breakage badly: master builds three or four times a
+ * day, so a test broken for two days had no green build left and came back `ambiguous` — nobody
+ * told, nobody to assign a fix to. Builds where none of the tests ran are skipped, as in
+ * `testHistory`.
+ *
+ * @returns {object} the deepened window, or the sweep's own when the walk finds no green build
+ */
+async function deeperTestWindow(incident, job, args) {
+  const { window } = incident;
+  if (!incident.tests?.length || !window.firstBad || args.blameHistory <= args.history) return window;
+  const builds = (await buildSummaries(job.url, args.blameHistory))
+    .filter(build => !build.building && build.result && build.totalCount != null);
+  const start = builds.findIndex(build => build.number === window.firstBad.number);
+  if (start < 0) return window;
+  let firstBad = builds[start];
+  for (const build of builds.slice(start + 1)) {
+    const { ran, failed } = await outcomesOf(`${job.url}/${build.number}`);
+    const present = incident.tests.filter(id => ran.has(id));
+    if (!present.length) continue;
+    if (present.every(id => !failed.has(id))) return { ...window, firstBad, lastGood: build, atLeast: false };
+    firstBad = build;
+  }
+  return { ...window, firstBad, atLeast: true };
 }
 
 // ---- Budget ----------------------------------------------------------------------------------
@@ -2107,6 +2173,10 @@ function fixBlock(incident) {
   if (!fix) return [];
   const head = `${fixRef(fix)} **${fix.author || '(unknown)'}** — ${fix.title}`;
   const where = fix.where[0].toUpperCase() + fix.where.slice(1);
+  if (fix.candidate) {
+    return ['', `**Candidate fix, unconfirmed** — ${head}`,
+      `${where}; ${fix.reason}. A name match only: this incident stands unless the PR fixes this failure.`];
+  }
   if (fix.partial) {
     const rest = fix.of - fix.covers.length;
     return ['', `**${FIX_HEAD[fix.kind].part}** — ${head}`,
@@ -2558,7 +2628,8 @@ function statusOf(report) {
  * that it is a day older has not changed, and re-announcing it daily is the noise this removes.
  */
 const stateLine = incident => [
-  incident.kind, incident.state ?? '', incident.fixState?.kind ?? '',
+  // Only an answer that silences counts; an unconfirmed candidate leaves the incident as it was.
+  incident.kind, incident.state ?? '', settled(incident) ? incident.fixState.kind : '',
   incident.beyondHorizon ? 'long-standing' : ''
 ].join('/');
 
@@ -2817,8 +2888,12 @@ for (const incident of incidents) {
 incidents.sort((a, b) => severity(a) - severity(b) || (b.testCount || 1) - (a.testCount || 1));
 // Beyond the horizon nothing may be written, so spending root-cause budget there buys nothing:
 // those incidents are aggregated into one digest line and that is all.
+// A failing quality gate takes the first slot: it is the run's first fix (§5), costs no log
+// reading, and only a deep incident carries the blame its commit comment needs.
+const gateFirst = incident => (/sonar-gate:failed$/.test(incident.signature || '') ? 0 : 1);
 const deep = incidents.filter(incident => incident.alerting && !incident.beyondHorizon
-  && !settled(incident) && incident.primary !== false).slice(0, args.budget);
+  && !settled(incident) && incident.primary !== false)
+  .sort((a, b) => gateFirst(a) - gateFirst(b)).slice(0, args.budget);
 for (const incident of deep) {
   incident.deep = true;
   await investigate(incident, jobsById.get(incident.id), args);
@@ -3218,7 +3293,8 @@ if (!args.pretty) {
       : incident.blame?.tier || '—';
     console.log(`${incident.deep ? '*' : ' '} [${incident.kind}] ${incident.id} — ${age}, ${who}` +
       `${incident.silent ? ' (already commented)' : ''}${incident.beyondHorizon ? ' (beyond horizon)' : ''}` +
-      `${incident.fixState ? ` (${settled(incident) ? 'possibly answered' : 'partly answered'} by ` +
+      `${incident.fixState ? ` (${settled(incident) ? 'possibly answered'
+        : incident.fixState.candidate ? 'candidate fix, unconfirmed' : 'partly answered'} by ` +
         `${fixName(incident.fixState)}, ${incident.fixState.where})` : ''}` +
       `${incident.primary === false ? ` (same cause as ${incident.alsoOn[0]} — collapsed)` : ''}` +
       `${incident.develocity ? ` [dv ${incident.develocity.failures}/${incident.develocity.runs} in ` +

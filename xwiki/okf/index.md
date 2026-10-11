@@ -49,10 +49,10 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **dependencies** — the checklist a third-party project must pass before a distribution depends on
   it; and upgrading a JavaScript one, whose lockfile the build's pinned pnpm rewrites.
 - **commit-messages** — the format of a commit summary and body, and when `[Misc]` is allowed.
-- **versioning** — which version string `@since` and `@Deprecated(since=…)` take, and an issue's
-  affected version (JIRA and OpenProject).
+- **versioning** — which version string `@since` and `@Deprecated(since=…)` take, the version a
+  change ships in on another branch, and an issue's affected version (JIRA and OpenProject).
 - **backward-compatibility** — what a public API may change, what Revapi checks, the `@Unstable`
-  lifecycle, and evolving an interface with default methods.
+  lifecycle, evolving an interface with default methods, and who may use `internal` packages.
 - **security** — writing scripts, templates and queries safely: escaping, untrusted input, the rights
   a script runs with and how to check them, injection, parsing XML.
 - **script-services** — how a script service reports an error (it throws, the caller uses `#try()`;
@@ -95,6 +95,8 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **running-docker-its** — running the Docker functional tests on a developer machine: container
   networking, setup failures, leftover containers and networks (ryuk), what parallel runs contend
   for. Commands in `xwiki-build`.
+- **ci-watch** — proving a merged or backported functional test on CI: what counts as "it ran and
+  passed", and the in-session watch (state file per PR × branch, recurring check).
 - **flickers** — diagnosing a flickering functional test: reading its video, the Selenium and browser
   mechanics most flickers turn out to be, forcing a race to prove a fix, the realtime debug dump.
 
@@ -114,8 +116,8 @@ Applied by `xwiki-fix-sonarqube-issue`, which owns the *procedure*.
 - **verification** — what makes a Sonar fix verified rather than merely compiled.
 
 ### servers/
-- **index** (`servers/index.md`) — the xwiki.org servers, how to reach each, and the traps of reading
-  and writing over REST.
+- **index** (`servers/index.md`) — the xwiki.org servers, how to reach each, the traps of reading
+  and writing over REST, and attributing posts an LLM co-wrote.
 - **jira** — working with jira.xwiki.org: whether to file at all, the issue fields, resolving,
   attachments, wiki markup.
 - **develocity** — a test's failure history across CI builds with `dv-test-history`: what it
@@ -144,7 +146,7 @@ each grounded in a cited source. `_template.md` holds the format and the groundi
 `xwiki-convert-tests-docker`, `xwiki-fix-flickering-docker-test`, `xwiki-increase-test-coverage`,
 `xwiki-legacy`, `xwiki-fix-deprecation`, `xwiki-deploy-extension`, `xwiki-capture-ui-change`, `xwiki-rest-api`, `xwiki-xar-pages`, `xwiki-doc-writing`, `xwiki-doc-convert`, `xwiki-doc-export`, `xwiki-translations`,
 `xwiki-contrib-release`, `xwiki-contrib-release-blog-post`, `xwiki-fix-sonarqube-issue`, `xwiki-backport`,
-`xwiki-backport-testneeded`, `xwiki-jira`, `xwiki-jira-bfd`, `xwiki-security-advisory`, `xwiki-openproject`,
+`xwiki-backport-testneeded`, `xwiki-jira`, `xwiki-jira-bfd`, `xwiki-daily-close`, `xwiki-security-advisory`, `xwiki-openproject`,
 `xwiki-release-test-triage`, `xwiki-ci-check`, `xwiki-release-documentation`, `xwiki-review`,
 `xwiki-presentation`.
 

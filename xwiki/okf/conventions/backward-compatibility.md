@@ -3,9 +3,10 @@ title: Backward compatibility policy
 stability: durable
 summary: Revapi enforces binary/semantic compatibility of public APIs, though not uniformly per module;
   @Unstable marks not-yet-stable API with a max 1-cycle lifetime; evolve interfaces with default
-  methods, not new interfaces.
+  methods, not new interfaces; main code never uses another project's `internal` packages.
 sources:
   - https://dev.xwiki.org/xwiki/bin/view/Community/DevelopmentPractices#HBackwardCompatibility
+  - https://dev.xwiki.org/xwiki/bin/view/Community/CodeStyle/JavaCodeStyle/#HPackagenames
 ---
 
 # Backward compatibility policy
@@ -18,6 +19,14 @@ XWiki pays close attention to backward compatibility. The **Revapi** Maven plugi
 
 It deliberately does **not** check source incompatibilities (too strict — e.g. adding generics to a
 return type should not break the build).
+
+## Who may use `internal` packages
+
+`internal` packages are not API: Revapi ignores them, so they can change or vanish in any release. Main
+code may only use the `internal` packages of its **own project** — xwiki-commons, xwiki-rendering and
+xwiki-platform count as one project and may use each other's. Anything else (a contrib extension) must
+not import theirs: when no public API covers the need, ask for one in the core project. Test code may
+use any `internal` class.
 
 ## `@Unstable` annotation
 

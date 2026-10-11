@@ -12,10 +12,9 @@ summary: The rules for xwiki.org documentation — Diataxis page types & audienc
   one page (granularity, keeping verbosity low, a hub page routing rather than narrating, how
   duplication is actually detected & why the surviving copy of shared content wants a visible page rather
   than a hidden `{{display}}` fragment), the page-structure xobject fields (Highlights/More/Related and their exact
-  semantics), documentation style (incl. never hard-wrapping prose — on xwiki.org pages and forum
-  posts alike — and not overusing the em dash), attachment/image/video rules (incl. webm + the
-  `{{embed}}` macro, what `caption` is and is *not* for, and drawing the red box as an overlay so no
-  ancestor clips it),
+  semantics), documentation style (incl. never hard-wrapping prose and not overusing the em dash),
+  attachment/image/video rules (incl. webm + the `{{embed}}` macro, what `caption` is and is *not*
+  for, and drawing the red box as an overlay so no ancestor clips it),
   page location — settled with the developer up front, as concrete alternatives — version-perspective
   and `{{version}}` rules, the XWiki syntax traps that silently
   mis-render (incl. linking a farm subwiki by URL instead of `doc:<wiki>:<ref>`, the nine cases where an
@@ -396,13 +395,8 @@ Use the guide for the authoring rules, and that page for what each structure fie
 - **Macros** — use the **code macro with an explicit `language` parameter** for code snippets
   (omitting it is slower and mis-colors). Use the **display macro** to avoid duplicated content: put
   repeated text/steps/images on a single hidden page and display it where needed.
-- **Never hard-wrap prose** — write each paragraph (and each list item) as a **single unbroken line**,
-  however long. This holds for xwiki.org page content *and* for forum.xwiki.org (Discourse) posts:
-  both reflow prose themselves, so manual line breaks inside a paragraph gain nothing and actively
-  hurt — they are painful to re-wrap in the web editor and can leak into the rendered output. The
-  **120-character limit is a Java-source rule** ([[code-style]]), enforced by Checkstyle; applying it
-  to prose bound for a web editor is a category error. Only fenced/`{{code}}` blocks keep their own
-  line structure, since there the code's formatting rules apply.
+- **Never hard-wrap prose** — each paragraph and list item is one line; only `{{code}}` blocks keep
+  their line structure.
 - **Do not overuse the em dash (`—`)** — it is not a substitute for a comma, a period, a colon or
   parentheses. Use the mark the sentence actually needs; keep the em dash for a sharp interruption or
   a genuine aside. **Exception:** inside a direct quote, punctuation stays exactly as the quoted

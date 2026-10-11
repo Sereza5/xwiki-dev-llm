@@ -178,10 +178,9 @@ hosted one since `gh` cannot upload: attach to the issue first, then link it fro
 Both descriptions and comments use the **JIRA wiki renderer**. Governing rule: **pick the right
 container, escape only *active* markup — never over-escape, and never escape inside code blocks.**
 
-- **Literals → monospace.** Wrap identifiers, flags, filenames and short commands in `{{…}}` (e.g.
-  `{{JAVA_OPTS}}`, `{{-e JAVA_OPTS="-Dhttp.proxyHost=…"}}`). It reads as code and removes any need to
-  escape the punctuation inside — the preferred style, cleaner than backslash-escaping. **Exception:
-  issue keys** — never monospace them (see below).
+- **Literals → monospace.** Anything that is not prose — an identifier, flag, path, command, or a
+  snippet of any syntax (XWiki, Velocity, XML, shell) — goes in `{{…}}` (e.g. `{{JAVA_OPTS}}`,
+  `{{$doc.display("x")}}`). **Exception: issue keys** — never monospace them (see below).
 - **Do not over-escape prose.** Most punctuation is already literal: `-`, `(`, `)`, `.`, `/`, `:`, and
   an underscore **inside a word** (`JAVA_OPTS` renders fine — `_italic_` only triggers at word
   boundaries). A backslash is only needed to stop *active* markup: line-leading `*`/`#`/`-` (lists),
@@ -193,10 +192,12 @@ container, escape only *active* markup — never over-escape, and never escape i
 - **Never escape inside `{code}` / `{noformat}` blocks.** Their content is literal, so a backslash
   added to "escape" markup renders as a **visible backslash** (`\- JAVA\_OPTS=…` shows the `\-`/`\_`).
   Put the **raw** snippet in the block; escaping is a *prose* concern only.
-- **`{{monospace}}` specifics.** It preserves angle brackets (`{{<version>/solr/}}` → `<version>/solr/`),
-  so short `<…>` tokens are fine inline — but it must not be glued to an adjacent word character:
-  `{{curl}}s` fails to parse and renders literally as `{{curl}}s` (add a space or reword). For
-  multi-line commands or `sed`/XML/YAML, use a `{code}`/`{noformat}` block (raw), as good descriptions do.
+- **`{{…}}` is a style, not a raw container.** JIRA markup inside it still renders (`{{_foo_}}` comes
+  out italic, `{{[x]}}` as a broken link), so backslash-escape it there (`{{\_foo\_}}`). Angle brackets
+  survive (`{{<version>/solr/}}`). It must not be glued to a word character: `{{curl}}s` renders
+  literally (add a space or reword).
+- **A literal spanning lines or containing `{{`/`}}` goes in a `{code}`/`{noformat}` block** (raw),
+  even a one-line XWiki macro: no escaping keeps `{{velocity}}` intact inside `{{…}}`.
 
 **Editing a comment** (e.g. to fix a mis-rendered one) is REST-only — `jira-cli` cannot edit
 comments: `PUT /rest/api/2/issue/{KEY}/comment/{ID}` with JSON `{"body": "…"}`. **Verify** afterwards

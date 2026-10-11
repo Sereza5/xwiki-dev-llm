@@ -95,6 +95,8 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **running-docker-its** — running the Docker functional tests on a developer machine: container
   networking, setup failures, leftover containers and networks (ryuk), what parallel runs contend
   for. Commands in `xwiki-build`.
+- **ci-watch** — proving a merged or backported functional test on CI: what counts as "it ran and
+  passed", and the in-session watch (state file per PR × branch, recurring check).
 
 ### sonarqube/
 Which SonarCloud fixes are *correct* in XWiki, and — the question that actually matters — which look

@@ -75,16 +75,20 @@ which metrics are constrained and where the traps are — never a substitute for
   claims the finding is code execution rather than XSS, so it has to be established, never assumed.
 - A **right required to exploit** can cap the impacts (Script right does): escalating from a right
   that is already powerful is not scored as critical. The trap: a right the attack *yields* never
-  caps — a Guest gaining script execution is scored by what that execution reaches, not lowered
-  because it lacks programming right.
-- Score the impacts from what the attacker **can achieve**, never from what the PoC printed: a probe
-  proving that code runs says nothing about its reach, and an unassessed impact is an open question
-  to raise, not a default *Low*.
+  caps.
+- Score the impacts from what the attacker **can achieve**, never from what the PoC printed: a
+  Guest gaining script execution is scored by what that execution reaches, not lowered for lacking
+  programming right, and a probe proving that code runs says nothing about its reach. An unassessed
+  impact is an open question to raise, not a default *Low*.
 - **Attack Complexity**, **Attack Requirements** and **User Interaction** have no XWiki best practice
   — use the official CVSS definitions. Merely *viewing* a page is **passive** interaction, not none.
-  Before calling a precondition rare, try the usual setups: public wiki, Guest view denied in the
-  global rights, and "Prevent unregistered users from viewing pages" — they differ, since some
-  bundled pages carry their own rights for Guest.
+- The trap with **Attack Complexity**: it describes a protection the attacker must defeat (e.g. a
+  secret to guess), never the fact that the attacker holds a privilege — Privileges Required
+  already encodes that, and counting it twice understates the finding.
+- The trap with **Attack Requirements**: before setting it to *Present* because of the wiki's access
+  setup, check the usual setups — public wiki, Guest view denied in the global rights, and "Prevent
+  unregistered users from viewing pages". They differ, since some bundled pages carry their own
+  rights for Guest.
 - **Critical** vs **Major** is split by the CVSS score (Critical at the higher band); a committer may
   raise to Critical below the threshold for high system impact or another strong argument, and an
   actively-exploited issue may be classed **Blocker**.

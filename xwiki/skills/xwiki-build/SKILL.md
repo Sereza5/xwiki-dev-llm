@@ -227,6 +227,12 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/xwiki-it-slot.mjs" --status   # who is holdi
 Two runs at a time by default (`--max N`, or `XWIKI_LLM_IT_SLOTS`). Exit code **75** means no slot
 came free within `--wait` (3600s default) — report which run holds it rather than launching anyway.
 
+`-Dxwiki.test.ui.keepRunning=true` leaves the wiki up after the tests and blocks Maven until
+`stop.txt` exists in the module directory (the log says so after `Access XWiki at:`) — never
+background it without planning to create that file. Creating it fails the class on the "files
+outside `target/`" check, so judge the run by the test's own result; delete the file afterwards, or
+the next `keepRunning` run stops at once.
+
 **To run one test many times** — measuring a flicker's pass *rate* rather than seeing whether it
 passed once — use `scripts/xwiki-it-repeat.mjs` instead of looping by hand. It takes the slot for
 the whole session, keeps each failing repetition's report, screenshot and video, excludes the runs
@@ -261,9 +267,8 @@ definitions.
 - The `legacy` profile activates backward-compatibility shim modules and is almost always required.
 - Skip flags worth knowing: `-Dxwiki.checkstyle.skip=true` (Checkstyle),
   `-Dxwiki.revapi.skip=true` (API compat), `-Dxwiki.surefire.captureconsole.skip=true`
-  (stdout capture check), `-Dxwiki.jacoco.skip=true` (JaCoCo; `-Djacoco.skip` does not stop the
-  check). Under `-Pquality`, running one test of a module (`-Dtest`, `-Dit.test`) fails the
-  coverage check after the test passed: skip it, or read the test result rather than the build's.
+  (stdout capture check), `-Dxwiki.jacoco.skip=true` (JaCoCo — not `-Djacoco.skip`, which the
+  parent POM overrides).
 - Checkstyle and Revapi run in the `verify` phase (not `test`), so `mvn test` won't catch them —
   use `mvn clean verify` or `install` to validate.
 - **The JaCoCo test-coverage check runs ONLY under `-Pquality`.** The `jacoco:check` goal that
@@ -275,6 +280,8 @@ definitions.
   `xwiki-increase-test-coverage` skill), there is almost no slack: removing or simplifying code —
   including a mechanical SonarQube fix — can shift the covered/total instruction ratio and fail the
   check. This failure is invisible without `-Pquality` and only surfaces in CI (which builds with it).
+  Running a subset of a module's tests (`-Dtest`, `-Dit.test`) under `-Pquality` fails this check
+  even when they pass; add `-Dxwiki.jacoco.skip=true`.
 
 ## Reading a multi-module reactor result
 

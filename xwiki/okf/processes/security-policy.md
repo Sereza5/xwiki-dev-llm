@@ -62,9 +62,7 @@ XWiki **fixes several metric values by policy**, and they do not match a calcula
 generic CVSS instinct. So never score from memory: read
 [Best practices for computing CVSS](https://dev.xwiki.org/xwiki/bin/view/Community/SecurityPolicy/#HBestpracticesforcomputingCVSS)
 first and take **every** metric from it, then compute with a CVSS 4 calculator. What follows is only
-which metrics are constrained and where the traps are — never a substitute for that read. The
-per-metric values themselves are not cached here, nor in the `xwiki-security-advisory` skill's
-Step 2, which reads the same section live.
+which metrics are constrained and where the traps are — never a substitute for that read.
 
 - **Attack Vector** is fixed by policy for every XWiki vulnerability — take it from the source
   rather than reasoning about the exploit path.
@@ -75,11 +73,18 @@ Step 2, which reads the same section live.
 - Some **vulnerability classes fix their impact metrics outright** (XSS and SSRF both do), on the
   subsequent system as well as the vulnerable one. The trap: asserting high *subsequent* impact
   claims the finding is code execution rather than XSS, so it has to be established, never assumed.
-- A **right required to exploit** can cap the impacts (Script right does). The trap: the caveat is
-  about the right the attack *needs*, not the right it *yields* — escalating from a right that is
-  already powerful is not scored as critical.
+- A **right required to exploit** can cap the impacts (Script right does): escalating from a right
+  that is already powerful is not scored as critical. The trap: a right the attack *yields* never
+  caps — a Guest gaining script execution is scored by what that execution reaches, not lowered
+  because it lacks programming right.
+- Score the impacts from what the attacker **can achieve**, never from what the PoC printed: a probe
+  proving that code runs says nothing about its reach, and an unassessed impact is an open question
+  to raise, not a default *Low*.
 - **Attack Complexity**, **Attack Requirements** and **User Interaction** have no XWiki best practice
   — use the official CVSS definitions. Merely *viewing* a page is **passive** interaction, not none.
+  Before calling a precondition rare, try the usual setups: public wiki, Guest view denied in the
+  global rights, and "Prevent unregistered users from viewing pages" — they differ, since some
+  bundled pages carry their own rights for Guest.
 - **Critical** vs **Major** is split by the CVSS score (Critical at the higher band); a committer may
   raise to Critical below the threshold for high system impact or another strong argument, and an
   actively-exploited issue may be classed **Blocker**.

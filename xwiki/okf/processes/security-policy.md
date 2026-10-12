@@ -82,6 +82,9 @@ which metrics are constrained and where the traps are — never a substitute for
   impact is an open question to raise, not a default *Low*.
 - **Attack Complexity**, **Attack Requirements** and **User Interaction** have no XWiki best practice
   — use the official CVSS definitions. Merely *viewing* a page is **passive** interaction, not none.
+- The trap with **Attack Complexity**: it describes a protection the attacker must defeat (e.g. a
+  secret to guess), never the fact that the attacker holds a privilege — Privileges Required
+  already encodes that, and counting it twice understates the finding.
 - The trap with **Attack Requirements**: before setting it to *Present* because of the wiki's access
   setup, check the usual setups — public wiki, Guest view denied in the global rights, and "Prevent
   unregistered users from viewing pages". They differ, since some bundled pages carry their own

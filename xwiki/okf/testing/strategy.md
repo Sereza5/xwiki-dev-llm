@@ -225,6 +225,7 @@ xwiki-platform-<feature>/
     pom.xml                     ← packaging pom; -test-pageobjects in <modules>, -test-docker under docker
     xwiki-platform-<feature>-test-pageobjects/   ← jar on xwiki-platform-test-ui; only when a page object is needed
     xwiki-platform-<feature>-test-docker/
+      src/main/java/…           ← optional test-only code (components, listeners, script services) for the wiki
       src/test/it/…/{AllIT,FeatureIT}.java
       src/test/resources/…      ← optional (XAR packages, …)
       src/test/webapp/…         ← optional files overlaid onto the test WAR
@@ -238,6 +239,11 @@ xwiki-platform-<feature>/
   `-test-pageobjects`, the modules under test as ordinary runtime dependencies (the framework
   installs them as extensions; `extraJARs` is a last resort), and the `clover` profile copied from a
   sibling module.
+- **Test-only code for the wiki under test** — a component override, an event listener, a script
+  service or a macro the test needs goes in the `-test-docker` module's `src/main/java`: whatever
+  lands in `target/classes` is copied to the test WAR's `WEB-INF/classes`, so it needs no separate
+  module or extension install. Prefer it to driving the behaviour through wiki pages the test has
+  to create. (https://dev.xwiki.org/xwiki/bin/view/Community/Testing/DockerTesting/#HCodeResources)
 - **`AllIT`** is the only class failsafe runs (`**/AllIT.java`, set by the `xwiki-commons` parent):
   it lists every test class as a `@Nested` subclass so XWiki starts once. `@UITest` placement: the
   `AllIT` rule above.

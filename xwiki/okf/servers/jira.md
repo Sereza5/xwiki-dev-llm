@@ -115,6 +115,11 @@ value being rejected with a 400, so a change documented on more pages than fit n
 ones there and the rest in a comment. The rest, including how an entry is created, is in
 [[../processes/release-notes]]; the procedure is the **`xwiki-release-documentation`** skill.
 
+A security issue's GitHub security advisory is **not** documentation: it goes in a **web link**
+titled `Security Advisory` (`POST /rest/api/2/issue/<KEY>/remotelink` with
+`{"object": {"url": "<GHSA URL>", "title": "Security Advisory"}}`) — not in `Documentation`, a
+comment, or a label such as "draft security advisory", which goes stale once the advisory is published.
+
 ## Resolving / closing an issue
 
 Choose the **resolution** that matches reality and **assign the issue to yourself** as you close it

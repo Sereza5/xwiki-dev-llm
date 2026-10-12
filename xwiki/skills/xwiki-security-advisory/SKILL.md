@@ -308,8 +308,8 @@ assumed. When the user asks for that step:
 - **Read the advisory before changing it.** Others can edit a draft in the GitHub UI, and a PATCH of
   the `description` replaces the whole text. Fetch the current version, compare it with what you sent,
   and merge their changes into yours rather than overwriting them.
-- Add a link to the draft advisory back on the JIRA issue(s) (a normal comment/field edit — safe since
-  the issue is already restricted).
+- Link the advisory on each JIRA issue as a `Security Advisory` web link, as `okf/servers/jira.md`
+  ("The documentation fields") describes.
 - Do **not** merge any fix through the advisory's temporary private fork via the GitHub UI — that
   leaks the JIRA title into the commit log. Use the manual merge recipe in
   [[security-policy]] (`okf/processes/security-policy.md`) instead.

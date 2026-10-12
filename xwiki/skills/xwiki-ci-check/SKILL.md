@@ -565,9 +565,10 @@ discredits the whole system), opened by the bot like any other — `pull-request
   configurations it does and spares the others;
 - the **experiment**: the temporary patch that forces the race, inline, so a reviewer can re-run it
   (or, for a reliable local reproduction, the command and configuration; for an isolated one, the
-  test), and the runs as a table — unchanged code *red n/m with the CI symptom*, fixed code *green*,
-  each with its count and the configuration it ran on, plus the fixed code unforced green when the
-  experiment was forced or isolated;
+  test), what it makes happen and why that is reachable without it, and the runs as a table —
+  unchanged code *red n/m with the CI symptom*, fixed code *green*, each with its count and the
+  configuration it ran on, plus the fixed code unforced green when the experiment was forced or
+  isolated;
 - the **Develocity breakdown** from `develocity` — the 28-day rate, the day the failure started, the
   configuration it concentrates in with its p-value, and the build scan — quoted, never reworded;
 - plainly that the local runs **do not reproduce CI's timing** and that **the ITs were not run in

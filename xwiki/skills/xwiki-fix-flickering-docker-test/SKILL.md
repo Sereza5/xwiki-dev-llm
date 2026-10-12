@@ -44,6 +44,8 @@ Make the hypothesised interleaving happen on demand, then run the test with **th
 
 **A reliable local reproduction is an experiment too.** When the unchanged test already fails with the CI symptom in a large share of local runs — 10 of 15, say — those runs are the control, and nothing needs forcing. Count the failures by symptom (by the deepest test frame, `okf/testing/flickers.md`): the CI one must be among them, and the others are further races of the same flicker that the fix has to account for. The failing runs' own screenshots, videos and logs feed the hypothesis, which still decides where the fix goes.
 
+**The forcing may make happen only what can happen without it** — a delay CI can plausibly hit, an order the code does not prevent, a value the source can return — and the notes say what it forces and why that is reachable. A forced state the code can never reach still turns red, and its fix then turns green, so that red proves nothing about CI.
+
 Mark every temporary change `// TEMP` and save it as a patch, so it can be reverted and re-applied for the fix's run. A forced race fails nearly every time, so a few repetitions are enough — a temporary `@RepeatedTest(N)`, with the test first deleting what it creates (pages, users) so a repetition starts clean.
 
 Read the outcome against the prediction:

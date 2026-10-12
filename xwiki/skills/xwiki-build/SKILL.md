@@ -229,9 +229,10 @@ came free within `--wait` (3600s default) — report which run holds it rather t
 
 `-Dxwiki.test.ui.keepRunning=true` leaves the wiki up after the tests and blocks Maven until
 `stop.txt` exists in the module directory (the log says so after `Access XWiki at:`) — never
-background it without planning to create that file. Creating it fails the class on the "files
-outside `target/`" check, so judge the run by the test's own result; delete the file afterwards, or
-the next `keepRunning` run stops at once.
+background it without planning to create that file. Create it **empty** (`touch stop.txt`): the
+framework then deletes it, so its absence afterwards means the stop worked. A non-empty file is kept
+(with a warning), fails the class on the "files outside `target/`" check, and stops the next
+`keepRunning` run at once.
 
 **To run one test many times** — measuring a flicker's pass *rate* rather than seeing whether it
 passed once — use `scripts/xwiki-it-repeat.mjs` instead of looping by hand. It takes the slot for

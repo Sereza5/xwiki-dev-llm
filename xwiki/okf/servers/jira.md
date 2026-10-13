@@ -137,6 +137,16 @@ Choose the **resolution** that matches reality and **assign the issue to yoursel
   become multi-arch as a side effect of other work, with no ARM-specific fix to point at.
 - **Won't Fix, Duplicate, Cannot Reproduce, Incomplete** → **no Fix Version/s**, or the issue shows
   up in that version's release notes.
+- **The cause is outside XWiki and the only change is a workaround** — a test skip or a check ignore
+  made because of a browser or upstream library bug, with a code comment citing that bug — → the
+  commit references the issue, and the issue is closed **Won't Fix** with **no Fix Version/s** once
+  the commit is merged, with a comment saying what was skipped and why. The reference links the skip
+  to its rationale from JIRA's Development panel, and the empty Fix Version/s keeps it out of the
+  release notes. The dev wiki does not forbid commits on a Won't Fix issue: it only names Won't Fix
+  in passing, as an example of an issue with no commits, in its "Don't reopen issues closed for a
+  released version" rule. Example: `XWIKI-20909`, a code macro box that cannot be scrolled with the
+  keyboard in Safari only, because of WebKit bug 190870, whose WCAG check is skipped on the affected
+  test pages.
 
 ### Fill the two documentation fields when closing
 

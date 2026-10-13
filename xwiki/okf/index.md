@@ -89,8 +89,8 @@ in the topic file. Read the entry to choose, then read the file — never act on
 - **solr-search** — XWiki's Solr backend, and what running it against a remote Solr requires.
 
 ### testing/
-- **strategy** — the kinds of test XWiki has, how they are named, the rules a test must satisfy, and
-  the layout of a feature's functional-test modules.
+- **strategy** — when a change needs a test, the kinds of test XWiki has, how they are named, the
+  rules a test must satisfy, and the layout of a feature's functional-test modules.
   Procedures live in the test skills.
 - **running-docker-its** — running the Docker functional tests on a developer machine: container
   networking, setup failures, leftover containers and networks (ryuk), what parallel runs contend

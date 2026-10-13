@@ -58,9 +58,9 @@ complete every section meaningfully:
   - When the branch can **no longer produce** that "before" (the fix is already in the working
     tree), **propose** the `xwiki-capture-ui-change` skill and run it only on the user's explicit
     yes. If they decline, ship the "after" alone and say in the PR what the before looked like.
-- **Executed Tests** — how the change was validated (the `mvn` commands run). Especially important
-  for regression fixes. Manual checks, such as screenshots or inspecting the rendered page, belong
-  here next to the automated test, never instead of it.
+- **Executed Tests** — how the change was validated: the `mvn` commands running its automated test
+  (`okf/testing/strategy.md` says when one is needed), plus any manual check. Especially important
+  for regression fixes.
 - **Expected merging strategy** — `Prefers squash: Yes`, and the `Backport on branches:` bullet
   listing the branches (say so explicitly when there is none).
 
@@ -79,10 +79,6 @@ complete every section meaningfully:
 ## Before opening
 
 - Prove the build is green locally (see the `xwiki-build` skill).
-- Make sure the change comes with an automated test, written after loading the
-  `xwiki-test-guidelines` skill. For a fix, prove the test fails without it: revert the fix, run the
-  test, see it fail, restore. When no test is feasible, say why in `## Clarifications` rather than
-  leaving reviewers to ask.
 - Create the PR with the `gh` CLI (e.g. `gh pr create`), using the template body.
 
 ## Check what the change adds to SonarCloud

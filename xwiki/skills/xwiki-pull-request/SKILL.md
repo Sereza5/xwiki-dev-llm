@@ -58,7 +58,8 @@ complete every section meaningfully:
   - When the branch can **no longer produce** that "before" (the fix is already in the working
     tree), **propose** the `xwiki-capture-ui-change` skill and run it only on the user's explicit
     yes. If they decline, ship the "after" alone and say in the PR what the before looked like.
-- **Executed Tests** — how the change was validated (the `mvn` commands run). Especially important
+- **Executed Tests** — how the change was validated: the `mvn` commands running its automated test
+  (`okf/testing/strategy.md` says when one is needed), plus any manual check. Especially important
   for regression fixes.
 - **Expected merging strategy** — `Prefers squash: Yes`, and the `Backport on branches:` bullet
   listing the branches (say so explicitly when there is none).

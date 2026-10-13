@@ -46,11 +46,11 @@ follows.
 - **Always pass `-B -ntp`** on every `mvn` invocation (batch mode + no-transfer-progress), to
   suppress interactive prompts and the download/progress lines that otherwise flood the output.
 - Tests must **not** write to stdout/stderr — enforced by Surefire's `CaptureConsole` listener.
-  Skip per-module with `-Dxwiki.surefire.captureconsole.skip=true`.
-- **Load the `xwiki-test-guidelines` skill before creating or changing any test**, down to adding a
-  single `@Test`/`@UITest` method to an existing class — the size of the change is not a reason to skip it.
-- After adding or changing unit tests in a module, run the **`xwiki-increase-test-coverage`** skill
-  as part of that change.
+- **A change comes with an automated test failing without it**, templates, wiki pages and JS
+  included (exceptions: `okf/testing/strategy.md`). **Load the `xwiki-test-guidelines` skill before
+  creating or changing any test**, even a single `@Test`/`@UITest` method.
+- After adding or changing unit tests in a module, run **`xwiki-increase-test-coverage`** in that
+  same change.
 
 ## Code conventions
 
